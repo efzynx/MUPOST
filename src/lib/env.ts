@@ -19,6 +19,8 @@ export const envSchema = z.object({
   S3_REGION: z.string().default("us-east-1"),
   NEXTAUTH_SECRET: z.string().min(16, "NEXTAUTH_SECRET must be at least 16 characters"),
   NEXT_PUBLIC_APP_URL: z.string().url().optional(),
+  THREADS_APP_ID: z.string().optional(),
+  THREADS_APP_SECRET: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

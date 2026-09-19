@@ -17,8 +17,16 @@ export function middleware(request: NextRequest): NextResponse {
 
   // 1. Validasi untuk Endpoint API (/api/*)
   if (pathname.startsWith("/api/")) {
-    // a. Validasi CSRF untuk metode mutasi (POST, PUT, PATCH, DELETE)
-    if (MUTATING_METHODS.has(method)) {
+    const isWebhookOrCallback =
+      pathname.startsWith("/api/auth/") ||
+      pathname === "/api/connect/meta/callback" ||
+      pathname === "/api/connect/tiktok/callback" ||
+      pathname === "/api/connect/threads/callback" ||
+      pathname === "/api/connect/threads/deauthorize" ||
+      pathname === "/api/connect/threads/delete";
+
+    // a. Validasi CSRF untuk metode mutasi (POST, PUT, PATCH, DELETE) kecuali webhook eksternal / callback
+    if (MUTATING_METHODS.has(method) && !isWebhookOrCallback) {
       const csrfCookie = request.cookies.get(CSRF_COOKIE_NAME)?.value;
       const csrfHeader = request.headers.get("x-csrf-token");
 
@@ -35,8 +43,8 @@ export function middleware(request: NextRequest): NextResponse {
       }
     }
 
-    // b. Validasi Session Cookie untuk semua route /api/* KECUALI /api/auth/*
-    if (!pathname.startsWith("/api/auth/")) {
+    // b. Validasi Session Cookie untuk semua route /api/* KECUALI webhook / callback OAuth
+    if (!isWebhookOrCallback) {
       if (!sessionCookie) {
         return NextResponse.json(
           {
@@ -68,8 +76,9 @@ export function middleware(request: NextRequest): NextResponse {
   );
 
   if (!sessionCookie && isProtectedPage) {
+    const fullPath = request.nextUrl.search ? `${pathname}${request.nextUrl.search}` : pathname;
     const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("from", pathname);
+    loginUrl.searchParams.set("from", fullPath);
     return NextResponse.redirect(loginUrl);
   }
 

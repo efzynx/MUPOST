@@ -1,8 +1,12 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api-client";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Share2, PlusSquare, UploadCloud, ArrowUpRight, CheckCircle2 } from "lucide-react";
 
 interface UserProfile {
   id: string;
@@ -14,7 +18,6 @@ export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   useEffect(() => {
     async function loadUser() {
@@ -35,101 +38,110 @@ export default function DashboardPage() {
     loadUser();
   }, [router]);
 
-  const handleLogout = async () => {
-    setIsLoggingOut(true);
-    try {
-      await apiFetch("/api/auth/logout", { method: "POST" });
-      router.push("/login");
-    } catch {
-      router.push("/login");
-    }
-  };
-
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400">
-        <div className="flex items-center space-x-3">
-          <div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-          <span>Memuat dashboard...</span>
+      <div className="flex h-64 items-center justify-center text-zinc-500">
+        <div className="flex items-center gap-2.5 text-xs">
+          <div className="w-4 h-4 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin" />
+          <span>Memuat ringkasan dashboard...</span>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
-      {/* Navbar */}
-      <header className="border-b border-slate-800 bg-slate-900/50 backdrop-blur-md sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-500 to-violet-500 flex items-center justify-center font-black text-white shadow-md shadow-indigo-500/20">
-              M
-            </div>
-            <span className="font-bold text-lg tracking-tight bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
-              Mupost
-            </span>
-          </div>
-
-          <div className="flex items-center space-x-4">
-            <div className="text-right hidden sm:block">
-              <p className="text-sm font-semibold text-slate-200">{user?.fullName}</p>
-              <p className="text-xs text-slate-500">{user?.email}</p>
-            </div>
-            <button
-              onClick={handleLogout}
-              disabled={isLoggingOut}
-              className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-medium transition-colors border border-slate-700/60"
-            >
-              {isLoggingOut ? "Keluar..." : "Keluar"}
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        <div className="mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
-            Selamat datang, {user?.fullName}! 👋
+    <div className="space-y-6">
+      {/* Header Welcome */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-5 border-b border-zinc-800/80">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight text-zinc-100">
+            Ringkasan Dashboard
           </h1>
-          <p className="text-slate-400 mt-1">
-            Platform manajemen publikasi multi-platform Mupost siap digunakan.
+          <p className="text-xs text-zinc-400 mt-1">
+            Selamat datang kembali, <span className="text-zinc-200 font-medium">{user?.fullName}</span> ({user?.email})
           </p>
         </div>
-
-        {/* Dashboard Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-6 relative overflow-hidden group hover:border-indigo-500/50 transition-colors">
-            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center mb-4 font-bold">
-              📱
-            </div>
-            <h3 className="font-semibold text-lg text-white">Koneksi Akun</h3>
-            <p className="text-sm text-slate-400 mt-1">
-              Hubungkan akun Meta (Facebook Page, Instagram) dan TikTok Anda.
-            </p>
-          </div>
-
-          <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-6 relative overflow-hidden group hover:border-violet-500/50 transition-colors">
-            <div className="w-10 h-10 rounded-xl bg-violet-500/10 border border-violet-500/20 text-violet-400 flex items-center justify-center mb-4 font-bold">
-              ✍️
-            </div>
-            <h3 className="font-semibold text-lg text-white">Buat & Jadwalkan Post</h3>
-            <p className="text-sm text-slate-400 mt-1">
-              Tulis konten sekali, jadwalkan, dan publikasikan serentak ke semua platform.
-            </p>
-          </div>
-
-          <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-6 relative overflow-hidden group hover:border-emerald-500/50 transition-colors">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mb-4 font-bold">
-              📊
-            </div>
-            <h3 className="font-semibold text-lg text-white">Impor Massal (CSV)</h3>
-            <p className="text-sm text-slate-400 mt-1">
-              Unggah file CSV untuk menjadwalkan ratusan postingan sekaligus.
-            </p>
-          </div>
+        <div className="flex items-center gap-2">
+          <Badge variant="published" className="h-6">
+            <CheckCircle2 className="w-3 h-3" />
+            Sistem Siap
+          </Badge>
         </div>
-      </main>
+      </div>
+
+      {/* Quick Action Cards Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <Link href="/settings/connections" className="group">
+          <Card className="h-full hover:border-zinc-700 transition-colors">
+            <CardHeader className="p-5 pb-3">
+              <div className="flex items-center justify-between">
+                <div className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-200">
+                  <Share2 className="w-4 h-4" />
+                </div>
+                <ArrowUpRight className="w-4 h-4 text-zinc-500 group-hover:text-zinc-200 transition-colors" />
+              </div>
+              <CardTitle className="text-sm mt-3">Koneksi Platform</CardTitle>
+              <CardDescription className="text-xs">
+                Hubungkan akun Meta (Facebook Page & Instagram) dan TikTok untuk memulai posting.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </Link>
+
+        <Link href="/posts/new" className="group">
+          <Card className="h-full hover:border-zinc-700 transition-colors">
+            <CardHeader className="p-5 pb-3">
+              <div className="flex items-center justify-between">
+                <div className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-200">
+                  <PlusSquare className="w-4 h-4" />
+                </div>
+                <ArrowUpRight className="w-4 h-4 text-zinc-500 group-hover:text-zinc-200 transition-colors" />
+              </div>
+              <CardTitle className="text-sm mt-3">Buat Postingan Baru</CardTitle>
+              <CardDescription className="text-xs">
+                Tulis konten, unggah media gambar atau video, dan jadwalkan ke berbagai platform.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </Link>
+
+        <Link href="/posts/import" className="group">
+          <Card className="h-full hover:border-zinc-700 transition-colors">
+            <CardHeader className="p-5 pb-3">
+              <div className="flex items-center justify-between">
+                <div className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-200">
+                  <UploadCloud className="w-4 h-4" />
+                </div>
+                <ArrowUpRight className="w-4 h-4 text-zinc-500 group-hover:text-zinc-200 transition-colors" />
+              </div>
+              <CardTitle className="text-sm mt-3">Import Massal CSV</CardTitle>
+              <CardDescription className="text-xs">
+                Unggah spreadsheet CSV untuk menjadwalkan puluhan postingan sekaligus secara instan.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </Link>
+      </div>
+
+      {/* Status Info Box */}
+      <Card>
+        <CardHeader className="p-5 pb-3">
+          <CardTitle className="text-sm">Langkah Selanjutnya</CardTitle>
+          <CardDescription className="text-xs">
+            Untuk mulai menggunakan fitur publikasi otomatis:
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="p-5 pt-0">
+          <ul className="text-xs text-zinc-400 space-y-2 list-disc list-inside">
+            <li>
+              Buka menu <Link href="/settings/connections" className="text-zinc-200 underline underline-offset-2">Koneksi Akun</Link> untuk mengotorisasi akun media sosial Anda via OAuth 2.0.
+            </li>
+            <li>
+              Setelah akun terhubung, Anda dapat mempublikasikan konten langsung atau menyimpannya sebagai jadwal terencana.
+            </li>
+          </ul>
+        </CardContent>
+      </Card>
     </div>
   );
 }

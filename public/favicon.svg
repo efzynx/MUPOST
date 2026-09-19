@@ -1,0 +1,12 @@
+<svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="120" height="120" rx="26" fill="#09090b"/>
+  <rect x="1" y="1" width="118" height="118" rx="25" stroke="#27272a" stroke-width="2"/>
+  <g transform="translate(10, 22) scale(0.83)">
+    <!-- Sayap Kiri Solid -->
+    <polygon points="16,16 33,16 45,68 28,68" fill="#f4f4f5"/>
+    <!-- Segitiga Tengah Solid -->
+    <polygon points="41,16 79,16 60,54" fill="#f4f4f5"/>
+    <!-- Sayap Kanan Hollow / Outline -->
+    <polygon points="87,16 104,16 92,68 75,68" fill="none" stroke="#f4f4f5" stroke-width="4.5" stroke-linejoin="round"/>
+  </g>
+</svg>

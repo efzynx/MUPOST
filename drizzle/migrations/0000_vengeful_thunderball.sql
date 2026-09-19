@@ -43,6 +43,7 @@ CREATE TABLE "posts" (
 	"published_at" timestamp with time zone,
 	"retry_count" smallint DEFAULT 0 NOT NULL,
 	"source" varchar(20) DEFAULT 'FORM' NOT NULL,
+	"meta" jsonb,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );

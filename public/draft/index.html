@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mupost Logo Draft Showcase & TikTok 1024x1024 Assets</title>
+  <style>
+    :root {
+      --bg: #09090b;
+      --card-bg: #121215;
+      --card-border: #27272a;
+      --text: #f4f4f5;
+      --text-muted: #a1a1aa;
+      --accent: #38bdf8;
+      --tiktok: #fe2c55;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      padding: 40px 24px;
+      line-height: 1.5;
+    }
+    .header {
+      max-width: 1200px;
+      margin: 0 auto 28px;
+    }
+    .header h1 {
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      margin-bottom: 8px;
+    }
+    .header p {
+      color: var(--text-muted);
+      font-size: 15px;
+    }
+    .banner {
+      max-width: 1200px;
+      margin: 0 auto 32px;
+      background: linear-gradient(135deg, rgba(254, 44, 85, 0.12), rgba(37, 244, 238, 0.08));
+      border: 1px solid rgba(254, 44, 85, 0.35);
+      border-radius: 12px;
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .banner-icon {
+      font-size: 24px;
+    }
+    .banner-text h4 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #fff;
+      margin-bottom: 2px;
+    }
+    .banner-text p {
+      font-size: 13px;
+      color: #cbd5e1;
+    }
+    .grid {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+      gap: 24px;
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+      transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+    .card:hover {
+      transform: translateY(-2px);
+      border-color: #3f3f46;
+    }
+    .preview-box {
+      height: 200px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #000000;
+      border-bottom: 1px solid var(--card-border);
+      padding: 24px;
+    }
+    .preview-box img {
+      max-height: 120px;
+      max-width: 80%;
+      object-fit: contain;
+    }
+    .content {
+      padding: 20px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+    .title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: #fafafa;
+    }
+    .desc {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+    }
+    .section-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #94a3b8;
+      margin-bottom: 8px;
+      margin-top: 6px;
+    }
+    .actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 500;
+      text-decoration: none;
+      transition: all 0.15s ease;
+    }
+    .btn-tiktok {
+      background: linear-gradient(135deg, rgba(254, 44, 85, 0.2), rgba(254, 44, 85, 0.35));
+      color: #ff6482;
+      border: 1px solid rgba(254, 44, 85, 0.5);
+      font-weight: 600;
+    }
+    .btn-tiktok:hover {
+      background: linear-gradient(135deg, rgba(254, 44, 85, 0.35), rgba(254, 44, 85, 0.5));
+      color: #ffffff;
+    }
+    .btn-tiktok-jpg {
+      background: rgba(255, 255, 255, 0.06);
+      color: #ff94a7;
+      border: 1px solid rgba(254, 44, 85, 0.3);
+    }
+    .btn-tiktok-jpg:hover {
+      background: rgba(254, 44, 85, 0.15);
+      color: #ffffff;
+    }
+    .btn-svg {
+      background: #27272a;
+      color: #fafafa;
+    }
+    .btn-svg:hover {
+      background: #3f3f46;
+    }
+    .btn-png {
+      background: rgba(56, 189, 248, 0.12);
+      color: #38bdf8;
+      border: 1px solid rgba(56, 189, 248, 0.25);
+    }
+    .btn-png:hover {
+      background: rgba(56, 189, 248, 0.22);
+    }
+    .btn-dark {
+      background: rgba(255, 255, 255, 0.06);
+      color: #e4e4e7;
+    }
+    .btn-dark:hover {
+      background: rgba(255, 255, 255, 0.12);
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Katalog Varian Logo Mupost & Aset 1024x1024</h1>
+    <p>Aset resmi berbasis draf sketsa tangan. Tersedia format standar dan format tepat <strong>1024x1024 px</strong> untuk ketentuan pendaftaran TikTok Developer & App Stores.</p>
+  </div>
+
+  <div class="banner">
+    <div class="banner-icon">🎯</div>
+    <div class="banner-text">
+      <h4>Sesuai Ketentuan TikTok Developer Portal</h4>
+      <p>TikTok mensyaratkan ikon berukuran tepat <strong>1024px x 1024px</strong> (rasio 1:1, di bawah 5MB, format PNG/JPEG). Tombol warna merah muda di bawah ini telah disiapkan tepat 1024x1024 px dengan safe-zone padding yang aman saat di-crop bundar/squircle oleh TikTok.</p>
+    </div>
+  </div>
+
+  <div class="grid">
+    <!-- Varian 1 -->
+    <div class="card">
+      <div class="preview-box">
+        <img src="./variant-1-sketch-floating-1024x1024.png" alt="Varian 1 1024x1024" />
+      </div>
+      <div class="content">
+        <h3 class="title">Varian 1: Sketsa Asli (Floating Apex)</h3>
+        <p class="desc">100% presisi mengikuti draf sketsa tangan: Sayap kiri solid, segitiga tengah terbalik solid dengan ujung melayang di ~75% ketinggian, dan sayap kanan wireframe outline.</p>
+        
+        <div class="section-label">Khusus TikTok (Ukuran 1024x1024):</div>
+        <div class="actions">
+          <a href="./variant-1-sketch-floating-1024x1024.png" download class="btn btn-tiktok">TikTok PNG (1024x1024)</a>
+          <a href="./variant-1-sketch-floating-1024x1024.jpg" download class="btn btn-tiktok-jpg">TikTok JPG (1024x1024)</a>
+          <a href="./variant-1-sketch-floating-1024x1024-transparent.png" download class="btn btn-dark">1024 Transparan</a>
+        </div>
+
+        <div class="section-label">Aset Standar:</div>
+        <div class="actions">
+          <a href="./variant-1-sketch-floating.svg" download class="btn btn-svg">SVG</a>
+          <a href="./variant-1-sketch-floating.png" download class="btn btn-png">PNG Transparan</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Varian 2 -->
+    <div class="card">
+      <div class="preview-box">
+        <img src="./variant-2-geometric-grounded-1024x1024.png" alt="Varian 2 1024x1024" />
+      </div>
+      <div class="content">
+        <h3 class="title">Varian 2: Geometric Grounded (Baseline Apex)</h3>
+        <p class="desc">Ujung segitiga tengah menyentuh garis baseline bawah bersama kedua sayap, membentuk siluet monogram M yang padat, simetris, dan tegas.</p>
+        
+        <div class="section-label">Khusus TikTok (Ukuran 1024x1024):</div>
+        <div class="actions">
+          <a href="./variant-2-geometric-grounded-1024x1024.png" download class="btn btn-tiktok">TikTok PNG (1024x1024)</a>
+          <a href="./variant-2-geometric-grounded-1024x1024.jpg" download class="btn btn-tiktok-jpg">TikTok JPG (1024x1024)</a>
+          <a href="./variant-2-geometric-grounded-1024x1024-transparent.png" download class="btn btn-dark">1024 Transparan</a>
+        </div>
+
+        <div class="section-label">Aset Standar:</div>
+        <div class="actions">
+          <a href="./variant-2-geometric-grounded.svg" download class="btn btn-svg">SVG</a>
+          <a href="./variant-2-geometric-grounded.png" download class="btn btn-png">PNG Transparan</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Varian 3 -->
+    <div class="card">
+      <div class="preview-box">
+        <img src="./variant-3-modern-tech-accent-1024x1024.png" alt="Varian 3 1024x1024" />
+      </div>
+      <div class="content">
+        <h3 class="title">Varian 3: Modern Tech Accent (Cyan Accent)</h3>
+        <p class="desc">Kombinasi elegan antara elemen solid putih platinum dengan aksen gradien electric cyan-indigo pada sayap kanan wireframe.</p>
+        
+        <div class="section-label">Khusus TikTok (Ukuran 1024x1024):</div>
+        <div class="actions">
+          <a href="./variant-3-modern-tech-accent-1024x1024.png" download class="btn btn-tiktok">TikTok PNG (1024x1024)</a>
+          <a href="./variant-3-modern-tech-accent-1024x1024.jpg" download class="btn btn-tiktok-jpg">TikTok JPG (1024x1024)</a>
+          <a href="./variant-3-modern-tech-accent-1024x1024-transparent.png" download class="btn btn-dark">1024 Transparan</a>
+        </div>
+
+        <div class="section-label">Aset Standar:</div>
+        <div class="actions">
+          <a href="./variant-3-modern-tech-accent.svg" download class="btn btn-svg">SVG</a>
+          <a href="./variant-3-modern-tech-accent.png" download class="btn btn-png">PNG Transparan</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Varian 4 -->
+    <div class="card">
+      <div class="preview-box">
+        <img src="./variant-4-app-icon-squircle-1024x1024.png" alt="Varian 4 1024x1024" />
+      </div>
+      <div class="content">
+        <h3 class="title">Varian 4: App Icon Badge (Squircle)</h3>
+        <p class="desc">Format ikon aplikasi mobile/PWA dalam bingkai squircle gelap beraksen border halus dengan elemen logo Mupost beraksen cyan.</p>
+        
+        <div class="section-label">Khusus TikTok (Ukuran 1024x1024):</div>
+        <div class="actions">
+          <a href="./variant-4-app-icon-solid-1024x1024.png" download class="btn btn-tiktok">Solid Background (1024x1024)</a>
+          <a href="./variant-4-app-icon-squircle-1024x1024.png" download class="btn btn-tiktok-jpg">Squircle Badge (1024x1024)</a>
+          <a href="./variant-4-app-icon-solid-1024x1024.jpg" download class="btn btn-dark">Format JPG (1024x1024)</a>
+        </div>
+
+        <div class="section-label">Aset Standar:</div>
+        <div class="actions">
+          <a href="./variant-4-app-icon-squircle.svg" download class="btn btn-svg">SVG</a>
+          <a href="./variant-4-app-icon-squircle.png" download class="btn btn-png">PNG</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Varian 5 -->
+    <div class="card">
+      <div class="preview-box">
+        <img src="./variant-5-full-brand-lockup-1024x1024.png" alt="Varian 5 1024x1024" />
+      </div>
+      <div class="content">
+        <h3 class="title">Varian 5: Full Brand Lockup (Logo + Wordmark)</h3>
+        <p class="desc">Kombinasi lengkap lambang grafis Mupost beserta teks tipografi "Mupost" dengan kerning presisi untuk header website dan materi branding.</p>
+        
+        <div class="section-label">Khusus TikTok / Banner Square (1024x1024):</div>
+        <div class="actions">
+          <a href="./variant-5-full-brand-lockup-1024x1024.png" download class="btn btn-tiktok">TikTok PNG (1024x1024)</a>
+          <a href="./variant-5-full-brand-lockup-1024x1024.jpg" download class="btn btn-tiktok-jpg">TikTok JPG (1024x1024)</a>
+        </div>
+
+        <div class="section-label">Aset Standar Header:</div>
+        <div class="actions">
+          <a href="./variant-5-full-brand-lockup.svg" download class="btn btn-svg">SVG</a>
+          <a href="./variant-5-full-brand-lockup.png" download class="btn btn-png">PNG Transparan</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

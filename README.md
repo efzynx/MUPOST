@@ -1,36 +1,596 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Mupost
 
-## Getting Started
+Platform manajemen dan penjadwalan postingan multi-platform. Buat, jadwalkan, dan publikasikan konten ke Facebook, Instagram, TikTok, serta Threads dari satu dasbor terpadu — lengkap dengan antrian publikasi paralel berbasis BullMQ, import massal via CSV, dan dukungan Progressive Web App (PWA) untuk akses offline.
 
-First, run the development server:
+---
+
+## Daftar Isi
+
+- [Fitur Utama](#fitur-utama)
+- [Arsitektur Teknis](#arsitektur-teknis)
+- [Prasyarat](#prasyarat)
+- [Instalasi](#instalasi)
+- [Konfigurasi Environment](#konfigurasi-environment)
+- [Setup Database](#setup-database)
+- [Menjalankan Aplikasi](#menjalankan-aplikasi)
+- [Menjalankan Worker BullMQ](#menjalankan-worker-bullmq)
+- [Pengujian](#pengujian)
+- [Perintah Tersedia](#perintah-tersedia)
+- [Struktur Proyek](#struktur-proyek)
+- [Alur Kerja Platform](#alur-kerja-platform)
+- [Panduan Deployment](#panduan-deployment)
+
+---
+
+## Fitur Utama
+
+| Fitur | Keterangan |
+|---|---|
+| **Multi-platform** | Publikasi ke Facebook Page, Instagram, TikTok, dan Threads dari satu tempat |
+| **Penjadwalan otomatis** | Jadwalkan post hingga 365 hari ke depan dengan toleransi eksekusi ≤ 60 detik |
+| **Publikasi paralel** | Semua platform tujuan diproses secara bersamaan via BullMQ Worker |
+| **Retry otomatis** | Maksimal 3 percobaan ulang dengan exponential backoff (1, 2, 4 menit) |
+| **Import CSV massal** | Upload hingga 500 baris sekaligus, laporan error per baris |
+| **Preview real-time** | Tampilan pratinjau posting sesuai tata letak setiap platform |
+| **Refresh token otomatis** | Scanner token kedaluwarsa berjalan setiap 1 jam via BullMQ |
+| **PWA & mode offline** | Dapat diinstal sebagai aplikasi; data ter-cache tersedia saat offline |
+| **Keamanan** | CSRF protection (double-submit cookie), JWT session, enkripsi token AES-256-GCM, rate limiting login |
+| **Upload media** | Gambar (JPEG/PNG/GIF, maks 8 MB) dan video (MP4/MOV, maks 512 MB) ke S3/MinIO |
+
+---
+
+## Arsitektur Teknis
+
+```
+┌─────────────────────────────────┐       ┌──────────────────────────┐
+│       Next.js 14 App Router     │       │   Worker Process (tsx)   │
+│  ┌──────────┐  ┌─────────────┐  │       │  ┌────────────────────┐  │
+│  │  UI Pages │  │  API Routes │  │       │  │  publish-worker.ts │  │
+│  └──────────┘  └──────┬──────┘  │       │  ├────────────────────┤  │
+│                        │         │       │  │token-refresh-worker│  │
+└────────────────────────┼─────────┘       └──────────┬───────────┘  │
+                         │                             │
+              ┌──────────▼──────────┐       ┌──────────▼───────────┐
+              │     PostgreSQL      │       │    Redis / BullMQ    │
+              │  users, posts,      │       │  publish-queue       │
+              │  sessions,          │       │  token-refresh-queue │
+              │  connected_accounts │       └──────────────────────┘
+              └─────────────────────┘
+```
+
+**Stack teknologi:**
+- **Framework:** Next.js 14 (App Router, TypeScript)
+- **Database:** PostgreSQL + Drizzle ORM
+- **Queue:** BullMQ + Redis (ioredis)
+- **Styling:** Tailwind CSS
+- **Auth:** JWT via `jose`, session cookie HTTP-only
+- **Media Storage:** S3-compatible (MinIO untuk development)
+- **PWA:** `@ducanh2912/next-pwa` + Workbox
+- **Testing:** Jest + fast-check (PBT) + Playwright + Testcontainers
+
+---
+
+## Prasyarat
+
+Pastikan semua perangkat lunak berikut sudah terpasang sebelum memulai:
+
+| Perangkat Lunak | Versi Minimum | Keterangan |
+|---|---|---|
+| **Node.js** | 20.x LTS | Versi 22+ juga didukung |
+| **npm** | 10.x | Atau package manager lain |
+| **PostgreSQL** | 15+ | Database utama |
+| **Redis** | 7+ | Antrian BullMQ & rate limiting |
+| **MinIO / S3** | — | Object storage untuk media (opsional untuk development) |
+| **Docker** | 24+ | Opsional, untuk menjalankan dependensi via container |
+
+---
+
+## Instalasi
+
+### 1. Clone Repository
+
+```bash
+git clone https://github.com/your-username/mupost.git
+cd mupost
+```
+
+### 2. Instal Dependensi
+
+```bash
+npm install
+```
+
+### 3. Siapkan Dependensi Infrastruktur
+
+**Opsi A — Menggunakan Docker (direkomendasikan untuk development):**
+
+```bash
+# PostgreSQL
+docker run -d \
+  --name mupost-postgres \
+  -e POSTGRES_USER=postgres \
+  -e POSTGRES_PASSWORD=postgres \
+  -e POSTGRES_DB=mupost \
+  -p 5432:5432 \
+  postgres:15-alpine
+
+# Redis
+docker run -d \
+  --name mupost-redis \
+  -p 6379:6379 \
+  redis:7-alpine
+
+# MinIO (object storage)
+docker run -d \
+  --name mupost-minio \
+  -e MINIO_ROOT_USER=minioadmin \
+  -e MINIO_ROOT_PASSWORD=minioadmin \
+  -p 9000:9000 \
+  -p 9001:9001 \
+  quay.io/minio/minio server /data --console-address ":9001"
+```
+
+**Opsi B — Menggunakan instalasi lokal:**
+
+Instal PostgreSQL, Redis, dan MinIO secara manual sesuai panduan masing-masing, lalu sesuaikan nilai `DATABASE_URL`, `REDIS_URL`, dan variabel S3 di file `.env`.
+
+---
+
+## Konfigurasi Environment
+
+### 1. Salin File `.env.example`
+
+```bash
+cp .env.example .env
+```
+
+### 2. Edit File `.env`
+
+Buka `.env` dan isi setiap variabel sesuai lingkungan Anda:
+
+```env
+# Node Environment
+NODE_ENV=development
+
+# ── DATABASE ────────────────────────────────────────────────────────────────
+# Format: postgresql://<user>:<password>@<host>:<port>/<database>
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/mupost
+
+# ── REDIS ───────────────────────────────────────────────────────────────────
+# Digunakan oleh BullMQ (antrian publikasi) dan rate limiting login
+REDIS_URL=redis://localhost:6379
+
+# ── KEAMANAN ────────────────────────────────────────────────────────────────
+# TOKEN_ENCRYPTION_KEY: kunci AES-256-GCM, harus persis 64 karakter hex
+# Generate dengan: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+TOKEN_ENCRYPTION_KEY=ganti_dengan_64_karakter_hex_acak_anda
+
+# NEXTAUTH_SECRET: kunci JWT sesi pengguna, minimal 32 karakter
+# Generate dengan: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+NEXTAUTH_SECRET=ganti_dengan_string_acak_anda
+
+# ── META (FACEBOOK & INSTAGRAM) ─────────────────────────────────────────────
+# Daftarkan aplikasi di https://developers.facebook.com
+META_APP_ID=your_meta_app_id
+META_APP_SECRET=your_meta_app_secret
+
+# ── TIKTOK ──────────────────────────────────────────────────────────────────
+# Daftarkan aplikasi di https://developers.tiktok.com
+TIKTOK_CLIENT_KEY=your_tiktok_client_key
+TIKTOK_CLIENT_SECRET=your_tiktok_client_secret
+
+# ── OBJECT STORAGE (S3 / MinIO) ─────────────────────────────────────────────
+S3_BUCKET=mupost-media
+S3_ENDPOINT=http://localhost:9000
+S3_ACCESS_KEY=minioadmin
+S3_SECRET_KEY=minioadmin
+S3_REGION=us-east-1
+
+# ── URL PUBLIK ──────────────────────────────────────────────────────────────
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+```
+
+> **Catatan keamanan:** Jangan pernah commit file `.env` ke repository. File ini sudah masuk ke `.gitignore`.
+
+### 3. Generate Kunci Enkripsi (jika belum ada)
+
+```bash
+# Generate TOKEN_ENCRYPTION_KEY (64 karakter hex = 32 bytes)
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+
+# Generate NEXTAUTH_SECRET
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+---
+
+## Setup Database
+
+### 1. Buat Database
+
+```bash
+# Jika menggunakan psql langsung
+psql -U postgres -c "CREATE DATABASE mupost;"
+
+# Atau via Docker container yang sudah berjalan
+docker exec mupost-postgres psql -U postgres -c "CREATE DATABASE mupost;"
+```
+
+### 2. Jalankan Migrasi
+
+```bash
+npm run db:migrate
+```
+
+Perintah ini menjalankan semua file migrasi SQL dari folder `drizzle/migrations/` ke database yang dikonfigurasi di `DATABASE_URL`.
+
+### 3. (Opsional) Buat Bucket MinIO
+
+Jika menggunakan MinIO untuk development, buat bucket `mupost-media`:
+
+```bash
+# Gunakan MinIO Client (mc) atau akses konsol web di http://localhost:9001
+# Kredensial default: minioadmin / minioadmin
+mc alias set local http://localhost:9000 minioadmin minioadmin
+mc mb local/mupost-media
+mc policy set public local/mupost-media
+```
+
+---
+
+## Menjalankan Aplikasi
+
+Mupost memerlukan **dua proses** yang berjalan secara bersamaan:
+
+1. **Next.js Server** — melayani UI dan API HTTP
+2. **BullMQ Worker** — memproses antrian publikasi di background
+
+### Terminal 1: Next.js Development Server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Aplikasi akan tersedia di [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Terminal 2: BullMQ Worker Process
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run worker
+```
 
-## Learn More
+Worker ini menjalankan dua proses sekaligus:
+- `publish-worker` — memproses job publikasi dari antrian `publish-queue`
+- `token-refresh-worker` — memperbarui token platform yang akan kedaluwarsa (scan tiap 1 jam)
 
-To learn more about Next.js, take a look at the following resources:
+> **Penting:** Worker **tidak boleh** dijalankan di dalam proses Next.js. Selalu jalankan sebagai proses Node.js terpisah.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+---
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Menjalankan Worker BullMQ
 
-## Deploy on Vercel
+### Menjalankan Semua Worker Sekaligus (Direkomendasikan)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+npm run worker
+# Menjalankan: src/workers/index.ts
+# Worker aktif: publish-worker + token-refresh-worker + scanner terjadwal
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Menjalankan Worker Secara Terpisah
+
+```bash
+# Hanya worker publikasi
+npm run worker:publish
+
+# Hanya worker token refresh
+npm run worker:refresh
+```
+
+### Konfigurasi Antrian
+
+| Antrian | Fungsi | Retry | Backoff |
+|---|---|---|---|
+| `publish-queue` | Publikasi post ke platform | 3x | Exponential: 1, 2, 4 menit |
+| `token-refresh-queue` | Refresh token OAuth | 3x | Fixed: 5 menit |
+
+---
+
+## Pengujian
+
+### Unit & Property-Based Tests
+
+```bash
+# Jalankan seluruh test suite
+npm test
+
+# Mode watch (otomatis rerun saat file berubah)
+npm run test:watch
+
+# Dengan laporan code coverage
+npm run test:coverage
+```
+
+**Hasil yang diharapkan:** 231 tests, 28 suites, 100% pass.
+
+### Integration Tests (Testcontainers)
+
+Integration tests menggunakan Docker untuk menjalankan PostgreSQL dan Redis sementara secara otomatis. Pastikan Docker daemon berjalan sebelum menjalankan:
+
+```bash
+# Jalankan hanya integration tests
+npx jest __tests__/integration/ --forceExit --testTimeout=90000
+
+# Atau jalankan satu file spesifik
+npx jest __tests__/integration/auth-flow.integration.test.ts --forceExit
+```
+
+> **Catatan:** Integration tests memerlukan Docker yang aktif. Setiap test suite akan otomatis menjalankan dan menghentikan container PostgreSQL + Redis.
+
+### E2E Tests (Playwright)
+
+E2E tests memerlukan server Next.js yang berjalan. Jalankan di dua terminal:
+
+```bash
+# Terminal 1: jalankan server
+npm run build && npm run start
+# atau untuk development:
+npm run dev
+
+# Terminal 2: jalankan E2E tests
+npm run test:e2e
+
+# Mode dengan browser terlihat (headed)
+npm run test:e2e:ui
+```
+
+> **Catatan:** Jika server tidak tersedia, E2E tests akan otomatis diskip (graceful skip) tanpa error.
+
+### Lighthouse CI
+
+Untuk verifikasi performa dan skor PWA:
+
+```bash
+# Pastikan server sudah berjalan di port 3000
+npm run build && npm run start &
+sleep 5
+
+# Jalankan Lighthouse CI
+npm run lhci
+```
+
+Target skor: `Performance ≥ 90` dan `PWA = pass`.
+
+---
+
+## Perintah Tersedia
+
+```bash
+# ── DEVELOPMENT ─────────────────────────────────────────────────────────────
+npm run dev               # Next.js dev server (http://localhost:3000)
+npm run build             # Build production
+npm run start             # Jalankan production build
+npm run lint              # ESLint
+npm run format            # Prettier (format semua file)
+npm run format:check      # Prettier (cek tanpa mengubah)
+
+# ── WORKER ──────────────────────────────────────────────────────────────────
+npm run worker            # Semua worker sekaligus (DIREKOMENDASIKAN)
+npm run worker:publish    # Hanya publish-worker
+npm run worker:refresh    # Hanya token-refresh-worker
+
+# ── DATABASE ────────────────────────────────────────────────────────────────
+npm run db:generate       # Generate file migrasi baru dari perubahan schema
+npm run db:migrate        # Jalankan migrasi ke database
+
+# ── TESTING ─────────────────────────────────────────────────────────────────
+npm test                  # Semua unit & property tests
+npm run test:watch        # Mode watch
+npm run test:coverage     # Dengan code coverage
+npm run test:e2e          # E2E tests Playwright (butuh server aktif)
+npm run test:e2e:ui       # E2E dengan browser terlihat
+npm run lhci              # Lighthouse CI (butuh server aktif)
+```
+
+---
+
+## Struktur Proyek
+
+```
+mupost/
+├── src/
+│   ├── app/                        # Next.js App Router
+│   │   ├── (auth)/                 # Halaman login & register
+│   │   ├── (dashboard)/            # Halaman yang butuh autentikasi
+│   │   │   ├── dashboard/          # Halaman utama dasbor
+│   │   │   ├── posts/              # Daftar, buat, edit, import post
+│   │   │   │   ├── page.tsx        # Daftar postingan
+│   │   │   │   ├── new/            # Buat post baru
+│   │   │   │   ├── [id]/edit/      # Edit post
+│   │   │   │   └── import/         # Import CSV massal
+│   │   │   └── settings/
+│   │   │       └── connections/    # Manajemen koneksi platform
+│   │   └── api/                    # REST API routes
+│   │       ├── auth/               # Login, register, logout, me
+│   │       ├── connect/            # OAuth Meta, TikTok, Threads
+│   │       ├── csv/                # Upload CSV & download template
+│   │       ├── media/              # Upload media ke S3
+│   │       └── posts/              # CRUD post, publish, retry, preview
+│   │
+│   ├── components/                 # Komponen React
+│   │   ├── preview/                # FacebookPreview, InstagramPreview, dll.
+│   │   ├── ui/                     # Button, Card, Badge, Icon
+│   │   └── OfflineBanner.tsx       # Banner mode offline
+│   │
+│   ├── lib/                        # Logika bisnis & utilitas
+│   │   ├── db/                     # Drizzle ORM (schema, migrations, client)
+│   │   ├── queue/                  # BullMQ queue definitions
+│   │   ├── services/               # Service layer
+│   │   │   ├── auth-service.ts     # Registrasi, login, JWT, rate limit
+│   │   │   ├── csv-processor.ts    # Parse & validasi CSV massal
+│   │   │   ├── media-uploader.ts   # Validasi & upload media ke S3
+│   │   │   ├── platform-connector.ts  # OAuth & token management
+│   │   │   ├── post-manager.ts     # CRUD post, schedule, BullMQ enqueue
+│   │   │   └── preview-engine.ts   # Render preview per platform
+│   │   ├── cookies.ts              # Konstanta cookie
+│   │   ├── crypto.ts               # AES-256-GCM encrypt/decrypt
+│   │   ├── csrf.ts                 # Generate & validasi CSRF token
+│   │   ├── env.ts                  # Validasi environment variables
+│   │   └── redis.ts                # ioredis client singleton
+│   │
+│   ├── workers/                    # BullMQ Worker processes
+│   │   ├── index.ts                # Entry point: jalankan semua worker
+│   │   ├── publish-worker.ts       # Proses job publikasi ke platform
+│   │   └── token-refresh-worker.ts # Refresh token OAuth + scanner terjadwal
+│   │
+│   └── middleware.ts               # CSRF validation & session guard
+│
+├── drizzle/
+│   └── migrations/                 # File SQL migrasi database
+│
+├── public/
+│   ├── manifest.json               # PWA Web App Manifest
+│   └── icons/                      # Ikon PWA (192px & 512px)
+│
+├── __tests__/
+│   ├── unit/                       # Unit tests (Jest)
+│   ├── property/                   # Property-based tests (fast-check)
+│   └── integration/                # Integration tests (Testcontainers)
+│
+├── e2e/                            # E2E tests (Playwright)
+├── playwright.config.ts            # Konfigurasi Playwright
+├── lighthouserc.js                 # Konfigurasi Lighthouse CI
+├── jest.config.js                  # Konfigurasi Jest
+├── drizzle.config.ts               # Konfigurasi Drizzle Kit
+├── next.config.mjs                 # Konfigurasi Next.js + PWA
+└── .env.example                    # Template variabel environment
+```
+
+---
+
+## Alur Kerja Platform
+
+### Menghubungkan Akun Platform
+
+1. Buka **Pengaturan → Koneksi Akun**
+2. Klik **Hubungkan** pada platform yang diinginkan (Meta/Instagram, TikTok)
+3. Ikuti alur OAuth — akun akan muncul di daftar setelah berhasil
+4. Token akses disimpan terenkripsi menggunakan AES-256-GCM
+
+### Membuat dan Mempublikasikan Post
+
+1. Buka **Postingan → Buat Post**
+2. Isi konten teks (maks 5.000 karakter), unggah media opsional
+3. Pilih satu atau lebih akun tujuan
+4. Pilih aksi:
+   - **Simpan sebagai Draft** — tersimpan tanpa dijadwalkan
+   - **Jadwalkan** — masukkan tanggal/waktu publikasi (min +5 menit)
+   - **Publikasikan Sekarang** — langsung masuk antrian BullMQ
+
+### Import Massal via CSV
+
+1. Buka **Postingan → Import CSV**
+2. Unduh **Template CSV** untuk mengetahui format kolom yang diperlukan
+3. Isi template dengan kolom berikut:
+
+| Kolom | Wajib | Format | Keterangan |
+|---|---|---|---|
+| `platform` | Ya | `facebook`, `instagram`, `tiktok` | Platform tujuan |
+| `scheduled_at` | Ya | ISO 8601 (`2026-12-01T10:00:00Z`) | Waktu publish (harus masa depan) |
+| `text_content` | Ya | Teks, maks 2.000 karakter | Konten postingan |
+| `media_url` | Tidak | URL http/https | URL gambar atau video |
+
+4. Upload file CSV (maks 500 baris, maks 5 MB)
+5. Sistem memproses baris valid, menampilkan laporan error per baris untuk yang tidak valid
+
+### Skema Status Post
+
+```
+DRAFT → SCHEDULED → QUEUED → PUBLISHED
+                              ↓
+                           PARTIAL (sebagian platform berhasil)
+                              ↓
+                            FAILED (semua platform gagal, bisa retry)
+```
+
+---
+
+## Panduan Deployment
+
+### Variabel Environment Produksi
+
+Pastikan variabel berikut dikonfigurasi dengan nilai yang kuat untuk production:
+
+```env
+NODE_ENV=production
+DATABASE_URL=postgresql://user:strongpassword@db-host:5432/mupost
+REDIS_URL=redis://:strongpassword@redis-host:6379
+TOKEN_ENCRYPTION_KEY=<64-karakter-hex-acak>
+NEXTAUTH_SECRET=<string-acak-minimal-32-karakter>
+META_APP_ID=<app-id-dari-meta-developers>
+META_APP_SECRET=<app-secret-dari-meta-developers>
+TIKTOK_CLIENT_KEY=<client-key-dari-tiktok-developers>
+TIKTOK_CLIENT_SECRET=<client-secret-dari-tiktok-developers>
+S3_BUCKET=mupost-media
+S3_ENDPOINT=https://your-s3-endpoint.com
+S3_ACCESS_KEY=<access-key>
+S3_SECRET_KEY=<secret-key>
+S3_REGION=ap-southeast-1
+NEXT_PUBLIC_APP_URL=https://yourdomain.com
+```
+
+### Build & Start
+
+```bash
+# Build production
+npm run build
+
+# Jalankan database migration
+npm run db:migrate
+
+# Terminal 1: Next.js server
+npm run start
+
+# Terminal 2: Worker process (wajib berjalan terpisah)
+npm run worker
+```
+
+### Catatan Deployment
+
+- **Worker wajib dipisah** dari proses Next.js. Gunakan `pm2`, `systemd`, atau container terpisah.
+- Pastikan Redis dan PostgreSQL dapat diakses dari kedua proses (Next.js server dan worker).
+- Konfigurasi `NEXTAUTH_SECRET` dan `TOKEN_ENCRYPTION_KEY` tidak boleh berubah setelah production — perubahan akan menginvalidasi semua sesi dan token yang tersimpan.
+- Service Worker PWA hanya aktif di `NODE_ENV=production` (dinonaktifkan saat development).
+
+### Contoh Konfigurasi PM2
+
+```json
+{
+  "apps": [
+    {
+      "name": "mupost-web",
+      "script": "node_modules/.bin/next",
+      "args": "start",
+      "env": { "NODE_ENV": "production", "PORT": "3000" }
+    },
+    {
+      "name": "mupost-worker",
+      "script": "node_modules/.bin/tsx",
+      "args": "src/workers/index.ts",
+      "env": { "NODE_ENV": "production" }
+    }
+  ]
+}
+```
+
+```bash
+pm2 start ecosystem.config.json
+pm2 save
+pm2 startup
+```
+
+---
+
+## Lisensi
+
+Hak cipta © 2024 Mupost. Seluruh hak dilindungi.

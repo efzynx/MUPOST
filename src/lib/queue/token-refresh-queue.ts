@@ -3,11 +3,23 @@ import { getRedisClient } from "@/lib/redis";
 
 export const TOKEN_REFRESH_QUEUE_NAME = "token-refresh-queue";
 
-export interface TokenRefreshJobData {
+export interface TokenRefreshAccountJobData {
+  type?: "refresh-account";
   accountId: string;
   userId: string;
-  platform: "META_PAGE" | "INSTAGRAM" | "TIKTOK";
+  platform: "META_PAGE" | "INSTAGRAM" | "TIKTOK" | "THREADS";
 }
+
+export interface TokenRefreshScannerJobData {
+  type: "scan-expiring-tokens";
+  accountId?: never;
+  userId?: never;
+  platform?: never;
+}
+
+export type TokenRefreshJobData =
+  | TokenRefreshAccountJobData
+  | TokenRefreshScannerJobData;
 
 declare global {
   // eslint-disable-next-line no-var

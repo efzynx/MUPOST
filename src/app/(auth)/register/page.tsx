@@ -4,6 +4,18 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api-client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Eye, EyeOff, AlertCircle } from "lucide-react";
+import { MupostLogo } from "@/components/ui/logo";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -79,7 +91,8 @@ export default function RegisterPage() {
           setFieldErrors(mapped);
         }
         setGeneralError(
-          response.data?.error?.message || "Pendaftaran gagal. Silakan periksa kembali data Anda."
+          response.data?.error?.message ||
+            "Pendaftaran gagal. Silakan periksa kembali data Anda."
         );
         setIsLoading(false);
         return;
@@ -87,183 +100,159 @@ export default function RegisterPage() {
 
       router.push(response.data?.redirect || "/dashboard");
     } catch {
-      setGeneralError("Gagal menghubungi server. Silakan periksa koneksi internet Anda.");
+      setGeneralError(
+        "Gagal menghubungi server. Silakan periksa koneksi internet Anda."
+      );
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-center items-center px-4 py-8 relative overflow-hidden">
-      {/* Background Glow */}
-      <div className="absolute -top-40 -right-40 w-96 h-96 bg-indigo-600/20 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-violet-600/20 rounded-full blur-3xl pointer-events-none" />
-
-      <div className="w-full max-w-md relative z-10">
+    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col justify-center items-center px-4 py-12">
+      <div className="w-full max-w-sm">
         {/* Brand Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-500 to-violet-500 shadow-lg shadow-indigo-500/30 mb-4">
-            <span className="text-2xl font-black tracking-wider text-white">M</span>
+        <div className="flex flex-col items-center mb-8 text-center">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-zinc-900 border border-zinc-800 p-2.5 mb-3 shadow-lg shadow-black/40 select-none">
+            <MupostLogo className="w-full h-full text-zinc-100" />
           </div>
-          <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
-            Daftar Akun Mupost
+          <h1 className="text-xl font-semibold tracking-tight text-zinc-100">
+            Mupost
           </h1>
-          <p className="text-sm text-slate-400 mt-2">
-            Mulai kelola konten media sosial Anda secara cerdas dan terpusat.
+          <p className="text-xs text-zinc-400 mt-1">
+            Buat akun baru untuk mulai menjadwalkan konten
           </p>
         </div>
 
-        {/* Card Container */}
-        <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl">
-          {generalError && (
-            <div className="mb-6 p-4 rounded-xl bg-red-950/50 border border-red-800/60 text-red-300 text-sm flex items-start space-x-3">
-              <svg
-                className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                />
-              </svg>
-              <span>{generalError}</span>
-            </div>
-          )}
+        {/* Auth Card */}
+        <Card className="border-zinc-800 bg-zinc-900/60 shadow-xl">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-base">Daftar Akun Baru</CardTitle>
+            <CardDescription className="text-xs">
+              Lengkapi formulir di bawah ini untuk membuat akun
+            </CardDescription>
+          </CardHeader>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Full Name Field */}
-            <div>
-              <label
-                htmlFor="fullName"
-                className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2"
-              >
-                Nama Lengkap
-              </label>
-              <input
-                id="fullName"
-                type="text"
-                required
-                placeholder="Nama Anda"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                className={`w-full px-4 py-3 rounded-xl bg-slate-950 border ${
-                  fieldErrors.fullName ? "border-red-500" : "border-slate-800"
-                } text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors`}
-              />
-              {fieldErrors.fullName && (
-                <p className="text-red-400 text-xs mt-1.5">{fieldErrors.fullName}</p>
-              )}
-            </div>
-
-            {/* Email Field */}
-            <div>
-              <label
-                htmlFor="email"
-                className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2"
-              >
-                Alamat Email
-              </label>
-              <input
-                id="email"
-                type="email"
-                required
-                autoComplete="email"
-                placeholder="nama@domain.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className={`w-full px-4 py-3 rounded-xl bg-slate-950 border ${
-                  fieldErrors.email ? "border-red-500" : "border-slate-800"
-                } text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors`}
-              />
-              {fieldErrors.email && (
-                <p className="text-red-400 text-xs mt-1.5">{fieldErrors.email}</p>
-              )}
-            </div>
-
-            {/* Password Field */}
-            <div>
-              <label
-                htmlFor="password"
-                className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2"
-              >
-                Kata Sandi
-              </label>
-              <div className="relative">
-                <input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  required
-                  autoComplete="new-password"
-                  placeholder="Minimal 8 karakter"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className={`w-full px-4 py-3 rounded-xl bg-slate-950 border ${
-                    fieldErrors.password ? "border-red-500" : "border-slate-800"
-                  } text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors pr-12`}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 text-xs px-2 py-1"
-                >
-                  {showPassword ? "Sembunyikan" : "Lihat"}
-                </button>
+          <CardContent>
+            {generalError && (
+              <div className="mb-4 p-3 rounded-lg bg-red-950/40 border border-red-800/50 text-red-300 text-xs flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                <span>{generalError}</span>
               </div>
-              {fieldErrors.password ? (
-                <p className="text-red-400 text-xs mt-1.5">{fieldErrors.password}</p>
-              ) : (
-                <p className="text-slate-500 text-xs mt-1.5">
-                  Panjang kata sandi antara 8 hingga 128 karakter.
-                </p>
-              )}
-            </div>
+            )}
 
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white font-medium shadow-lg shadow-indigo-500/25 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
-            >
-              {isLoading ? (
-                <>
-                  <svg
-                    className="animate-spin h-5 w-5 text-white"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label
+                  htmlFor="fullName"
+                  className="block text-xs font-medium text-zinc-300 mb-1.5"
+                >
+                  Nama Lengkap
+                </label>
+                <Input
+                  id="fullName"
+                  type="text"
+                  required
+                  placeholder="Nama Lengkap"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  error={Boolean(fieldErrors.fullName)}
+                />
+                {fieldErrors.fullName && (
+                  <p className="text-red-400 text-xs mt-1">
+                    {fieldErrors.fullName}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label
+                  htmlFor="email"
+                  className="block text-xs font-medium text-zinc-300 mb-1.5"
+                >
+                  Alamat Email
+                </label>
+                <Input
+                  id="email"
+                  type="email"
+                  required
+                  autoComplete="email"
+                  placeholder="nama@perusahaan.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  error={Boolean(fieldErrors.email)}
+                />
+                {fieldErrors.email && (
+                  <p className="text-red-400 text-xs mt-1">
+                    {fieldErrors.email}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label
+                  htmlFor="password"
+                  className="block text-xs font-medium text-zinc-300 mb-1.5"
+                >
+                  Kata Sandi
+                </label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    required
+                    autoComplete="new-password"
+                    placeholder="Minimal 8 karakter"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    error={Boolean(fieldErrors.password)}
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors p-0.5"
+                    tabIndex={-1}
+                    aria-label={showPassword ? "Sembunyikan kata sandi" : "Tampilkan kata sandi"}
                   >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                  </svg>
-                  <span>Mendaftarkan akun...</span>
-                </>
-              ) : (
-                <span>Daftar Sekarang</span>
-              )}
-            </button>
-          </form>
+                    {showPassword ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
+                {fieldErrors.password ? (
+                  <p className="text-red-400 text-xs mt-1">
+                    {fieldErrors.password}
+                  </p>
+                ) : (
+                  <p className="text-zinc-500 text-[11px] mt-1">
+                    Gunakan 8 hingga 128 karakter.
+                  </p>
+                )}
+              </div>
 
-          {/* Footer Link */}
-          <div className="mt-8 pt-6 border-t border-slate-800 text-center text-sm text-slate-400">
+              <Button
+                type="submit"
+                variant="primary"
+                className="w-full mt-2"
+                isLoading={isLoading}
+              >
+                Daftar Akun
+              </Button>
+            </form>
+          </CardContent>
+
+          <CardFooter className="pt-2 border-t border-zinc-800/80 flex justify-center text-xs text-zinc-400">
             Sudah memiliki akun?{" "}
             <Link
               href="/login"
-              className="text-indigo-400 hover:text-indigo-300 font-semibold transition-colors"
+              className="ml-1 text-zinc-200 hover:text-white font-medium underline underline-offset-4 transition-colors"
             >
               Masuk di sini
             </Link>
-          </div>
-        </div>
+          </CardFooter>
+        </Card>
       </div>
     </div>
   );

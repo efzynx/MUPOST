@@ -45,3 +45,8 @@ data/
 skills/
 skills-lock.json
 
+# test reports & artifacts
+test-results/
+e2e-report/
+
+

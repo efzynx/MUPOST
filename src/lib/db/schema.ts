@@ -16,7 +16,12 @@ import {
 // PostgreSQL Enums
 // ==========================================
 
-export const platformTypeEnum = pgEnum("platform_type", ["META_PAGE", "INSTAGRAM", "TIKTOK"]);
+export const platformTypeEnum = pgEnum("platform_type", [
+  "META_PAGE",
+  "INSTAGRAM",
+  "TIKTOK",
+  "THREADS",
+]);
 
 export const accountStatusEnum = pgEnum("account_status", ["ACTIVE", "EXPIRED", "NEEDS_REAUTH"]);
 
@@ -111,6 +116,7 @@ export const posts = pgTable(
     publishedAt: timestamp("published_at", { withTimezone: true }),
     retryCount: smallint("retry_count").notNull().default(0),
     source: varchar("source", { length: 20 }).notNull().default("FORM"),
+    meta: jsonb("meta"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
