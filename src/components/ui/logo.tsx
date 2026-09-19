@@ -23,7 +23,7 @@ const sizeClasses = {
  * - Sayap kanan: Wireframe/outline diagonal band (/)
  */
 export function MupostLogo({
-  variant = "default",
+  variant = "accent",
   size = "md",
   className,
   ...props
@@ -45,12 +45,18 @@ export function MupostLogo({
           className={cn("w-full h-full", sizeClass)}
           {...props}
         >
+          <defs>
+            <linearGradient id="mupostGradSquircle" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#38BDF8" />
+              <stop offset="100%" stopColor="#818CF8" />
+            </linearGradient>
+          </defs>
           <polygon points="16,16 33,16 45,68 28,68" fill="currentColor" />
           <polygon points="41,16 79,16 60,54" fill="currentColor" />
           <polygon
             points="87,16 104,16 92,68 75,68"
             fill="none"
-            stroke="currentColor"
+            stroke="url(#mupostGradSquircle)"
             strokeWidth="4.5"
             strokeLinejoin="round"
           />
@@ -59,7 +65,7 @@ export function MupostLogo({
     );
   }
 
-  if (variant === "accent") {
+  if (variant === "accent" || variant === "default") {
     return (
       <svg
         viewBox="0 0 120 80"
@@ -78,7 +84,7 @@ export function MupostLogo({
         <polygon points="16,16 33,16 45,68 28,68" fill="currentColor" />
         {/* Segitiga tengah */}
         <polygon points="41,16 79,16 60,54" fill="currentColor" />
-        {/* Sayap kanan wireframe dengan gradient aksen */}
+        {/* Sayap kanan wireframe dengan aksen cyan gradient */}
         <polygon
           points="87,16 104,16 92,68 75,68"
           fill="none"
@@ -115,7 +121,6 @@ export function MupostLogo({
     );
   }
 
-  // Variant default (floating apex ~75%, presisi mengikuti sketsa asli)
   return (
     <svg
       viewBox="0 0 120 80"
@@ -124,11 +129,8 @@ export function MupostLogo({
       className={cn(sizeClass, className)}
       {...props}
     >
-      {/* Sayap kiri */}
       <polygon points="16,16 33,16 45,68 28,68" fill="currentColor" />
-      {/* Segitiga tengah */}
       <polygon points="41,16 79,16 60,54" fill="currentColor" />
-      {/* Sayap kanan wireframe */}
       <polygon
         points="87,16 104,16 92,68 75,68"
         fill="none"
@@ -151,7 +153,7 @@ interface MupostBrandProps {
  * Brand Logo + Text "Mupost" Lockup
  */
 export function MupostBrand({
-  variant = "default",
+  variant = "accent",
   size = "md",
   className,
   showTagline = false,

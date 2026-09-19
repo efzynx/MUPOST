@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import {
   ArrowLeft,
   Download,
@@ -16,6 +17,7 @@ import {
   Loader2,
   X,
   FileCheck,
+  Layers,
 } from "lucide-react";
 
 interface CsvRowError {
@@ -62,7 +64,7 @@ export default function CsvImportPage() {
     setSummary(null);
 
     if (!selectedFile.name.toLowerCase().endsWith(".csv")) {
-      setErrorMessage("Hanya file dengan ekstensi .csv yang diterima.");
+      setErrorMessage("Hanya file dengan format .csv yang dapat diterima.");
       setFile(null);
       return;
     }
@@ -125,9 +127,11 @@ export default function CsvImportPage() {
       }
 
       setSummary(json.data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setErrorMessage(
-        err.message || "Terjadi kesalahan jaringan saat mengunggah file."
+        err instanceof Error
+          ? err.message
+          : "Terjadi kesalahan jaringan saat mengunggah file."
       );
     } finally {
       setIsUploading(false);
@@ -135,44 +139,44 @@ export default function CsvImportPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-4 sm:p-6 space-y-6">
+    <div className="max-w-4xl mx-auto space-y-6">
       {/* Header & Navigasi */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <Link
-              href="/posts"
-              className="text-gray-500 hover:text-gray-700 transition flex items-center gap-1 text-sm"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Kembali ke Daftar Post
-            </Link>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-zinc-800/80">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/posts"
+            className="p-2 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
+            title="Kembali ke Daftar Postingan"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </Link>
+          <div>
+            <h1 className="text-xl font-bold tracking-tight text-zinc-100">
+              Import Post via CSV
+            </h1>
+            <p className="text-xs text-zinc-400 mt-0.5">
+              Jadwalkan atau publikasikan puluhan postingan sekaligus dari template spreadsheet CSV.
+            </p>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            Import Post via CSV
-          </h1>
-          <p className="text-sm text-gray-500">
-            Unggah file CSV untuk membuat dan menjadwalkan banyak postingan secara sekaligus.
-          </p>
         </div>
 
         <a
           href="/api/csv/template"
           download="mupost_template.csv"
-          className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition shadow-sm self-start sm:self-auto"
+          className="inline-flex items-center gap-2 px-3.5 py-2 border border-zinc-800 rounded-lg text-xs font-medium text-zinc-300 bg-zinc-900/60 hover:bg-zinc-800 hover:text-zinc-100 transition-colors shadow-sm self-start sm:self-auto"
         >
-          <Download className="w-4 h-4 text-gray-500" />
+          <Download className="w-3.5 h-3.5 text-zinc-400" />
           Unduh Template CSV
         </a>
       </div>
 
       {/* Pesan Error Global */}
       {errorMessage && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
-          <div className="text-sm text-red-700">
-            <p className="font-medium">Proses Gagal</p>
-            <p>{errorMessage}</p>
+        <div className="p-4 bg-red-950/40 border border-red-800/60 rounded-xl flex items-start gap-3 text-red-300 text-xs">
+          <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+          <div className="space-y-0.5">
+            <p className="font-semibold text-red-200">Gagal Memproses CSV</p>
+            <p className="text-red-300/90 leading-relaxed">{errorMessage}</p>
           </div>
         </div>
       )}
@@ -180,79 +184,110 @@ export default function CsvImportPage() {
       {/* Ringkasan Hasil Upload */}
       {summary && (
         <div className="space-y-4">
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center gap-2 mb-4">
-                {summary.createdCount > 0 ? (
-                  <CheckCircle2 className="w-6 h-6 text-green-600" />
-                ) : (
-                  <AlertTriangle className="w-6 h-6 text-amber-600" />
-                )}
-                <h2 className="text-lg font-semibold text-gray-900">
-                  Ringkasan Pemrosesan CSV
-                </h2>
+          <Card className="border-zinc-800/80 bg-zinc-900/40 rounded-xl overflow-hidden">
+            <CardContent className="p-6 space-y-6">
+              <div className="flex items-center justify-between pb-4 border-b border-zinc-800/60">
+                <div className="flex items-center gap-2.5">
+                  {summary.createdCount > 0 ? (
+                    <div className="w-8 h-8 rounded-lg bg-emerald-950/60 border border-emerald-800/50 flex items-center justify-center text-emerald-400">
+                      <CheckCircle2 className="w-4 h-4" />
+                    </div>
+                  ) : (
+                    <div className="w-8 h-8 rounded-lg bg-amber-950/60 border border-amber-800/50 flex items-center justify-center text-amber-400">
+                      <AlertTriangle className="w-4 h-4" />
+                    </div>
+                  )}
+                  <div>
+                    <h2 className="text-sm font-semibold text-zinc-100">
+                      Hasil Pemrosesan File CSV
+                    </h2>
+                    <p className="text-xs text-zinc-400">
+                      {summary.createdCount > 0
+                        ? "Seluruh atau sebagian postingan berhasil diimpor ke sistem."
+                        : "Tidak ada baris data yang berhasil diimpor. Periksa kesalahan di bawah."}
+                    </p>
+                  </div>
+                </div>
+
+                <Badge
+                  variant={summary.createdCount > 0 ? "published" : "failed"}
+                  className="h-6"
+                >
+                  {summary.createdCount > 0 ? "Selesai Diproses" : "Perlu Perbaikan"}
+                </Badge>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-                <div className="p-4 bg-green-50 rounded-lg border border-green-100">
-                  <p className="text-xs font-medium text-green-800 uppercase tracking-wider">
+              {/* Metric Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="p-4 bg-zinc-950/40 rounded-xl border border-zinc-800/70">
+                  <span className="text-[11px] font-medium text-emerald-400/90 uppercase tracking-wider">
                     Post Berhasil Dibuat
-                  </p>
-                  <p className="text-2xl font-bold text-green-900 mt-1">
+                  </span>
+                  <p className="text-2xl font-bold text-zinc-100 mt-1">
                     {summary.createdCount}
                   </p>
+                  <p className="text-[10px] text-zinc-500 mt-0.5">Siap di antrean posting</p>
                 </div>
 
-                <div className="p-4 bg-amber-50 rounded-lg border border-amber-100">
-                  <p className="text-xs font-medium text-amber-800 uppercase tracking-wider">
-                    Baris Dilewati / Error
-                  </p>
-                  <p className="text-2xl font-bold text-amber-900 mt-1">
+                <div className="p-4 bg-zinc-950/40 rounded-xl border border-zinc-800/70">
+                  <span className="text-[11px] font-medium text-amber-400/90 uppercase tracking-wider">
+                    Baris Gagal / Dilewati
+                  </span>
+                  <p className="text-2xl font-bold text-zinc-100 mt-1">
                     {summary.skippedCount}
                   </p>
+                  <p className="text-[10px] text-zinc-500 mt-0.5">Validasi format tidak sesuai</p>
                 </div>
 
-                <div className="p-4 bg-blue-50 rounded-lg border border-blue-100">
-                  <p className="text-xs font-medium text-blue-800 uppercase tracking-wider">
+                <div className="p-4 bg-zinc-950/40 rounded-xl border border-zinc-800/70">
+                  <span className="text-[11px] font-medium text-zinc-400 uppercase tracking-wider">
                     Total Baris Data
-                  </p>
-                  <p className="text-2xl font-bold text-blue-900 mt-1">
+                  </span>
+                  <p className="text-2xl font-bold text-zinc-100 mt-1">
                     {summary.totalRows}
                   </p>
+                  <p className="text-[10px] text-zinc-500 mt-0.5">Baris terbaca dari file</p>
                 </div>
               </div>
 
               {/* Tabel Laporan Error */}
               {summary.errors && summary.errors.length > 0 && (
-                <div className="space-y-2">
-                  <h3 className="text-sm font-semibold text-gray-800">
-                    Laporan Kesalahan Baris ({summary.errors.length})
-                  </h3>
-                  <div className="overflow-x-auto border border-gray-200 rounded-lg">
-                    <table className="min-w-full divide-y divide-gray-200 text-sm">
-                      <thead className="bg-gray-50">
+                <div className="space-y-3 pt-2">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-semibold text-zinc-200 flex items-center gap-1.5">
+                      <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
+                      Detail Kesalahan Validasi ({summary.errors.length})
+                    </h3>
+                    <span className="text-[11px] text-zinc-500">
+                      Perbaiki baris terkait pada file CSV Anda
+                    </span>
+                  </div>
+
+                  <div className="overflow-x-auto rounded-xl border border-zinc-800 bg-zinc-950/50">
+                    <table className="min-w-full divide-y divide-zinc-800 text-xs">
+                      <thead className="bg-zinc-900/60">
                         <tr>
-                          <th className="px-4 py-2.5 text-left font-medium text-gray-600 w-24">
+                          <th className="px-4 py-3 text-left font-medium text-zinc-400 w-24">
                             Baris
                           </th>
-                          <th className="px-4 py-2.5 text-left font-medium text-gray-600 w-36">
+                          <th className="px-4 py-3 text-left font-medium text-zinc-400 w-36">
                             Kolom
                           </th>
-                          <th className="px-4 py-2.5 text-left font-medium text-gray-600">
+                          <th className="px-4 py-3 text-left font-medium text-zinc-400">
                             Deskripsi Masalah
                           </th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-200 bg-white">
+                      <tbody className="divide-y divide-zinc-800/60">
                         {summary.errors.map((err, idx) => (
-                          <tr key={idx} className="hover:bg-gray-50">
-                            <td className="px-4 py-2.5 font-mono text-gray-700">
+                          <tr key={idx} className="hover:bg-zinc-900/40 transition-colors">
+                            <td className="px-4 py-3 font-mono text-zinc-300 font-semibold">
                               #{err.rowNumber}
                             </td>
-                            <td className="px-4 py-2.5 font-medium text-amber-700">
+                            <td className="px-4 py-3 font-medium text-amber-400">
                               {err.column}
                             </td>
-                            <td className="px-4 py-2.5 text-gray-600">
+                            <td className="px-4 py-3 text-zinc-400">
                               {err.description}
                             </td>
                           </tr>
@@ -263,20 +298,24 @@ export default function CsvImportPage() {
                 </div>
               )}
 
-              <div className="mt-6 flex gap-3">
+              {/* Tombol Aksi Selesai */}
+              <div className="pt-3 border-t border-zinc-800/60 flex flex-wrap items-center gap-3">
                 <Button
+                  variant="primary"
                   onClick={() => router.push("/posts")}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                  className="text-xs gap-1.5"
                 >
+                  <Layers className="w-3.5 h-3.5" />
                   Buka Daftar Postingan
                 </Button>
                 <Button
-                  variant="outline"
+                  variant="secondary"
                   onClick={() => {
                     setFile(null);
                     setSummary(null);
                     setErrorMessage(null);
                   }}
+                  className="text-xs gap-1.5"
                 >
                   Upload File Lain
                 </Button>
@@ -286,20 +325,21 @@ export default function CsvImportPage() {
         </div>
       )}
 
-      {/* Upload Box (jika belum ada summary atau ingin upload ulang) */}
+      {/* Upload Box (jika belum ada summary) */}
       {!summary && (
-        <Card>
+        <Card className="border-zinc-800/80 bg-zinc-900/40 rounded-xl overflow-hidden">
           <CardContent className="p-6 space-y-6">
+            {/* Drag & Drop Area */}
             <div
               onDragEnter={handleDrag}
               onDragLeave={handleDrag}
               onDragOver={handleDrag}
               onDrop={handleDrop}
               onClick={() => fileInputRef.current?.click()}
-              className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition flex flex-col items-center justify-center ${
+              className={`border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-all flex flex-col items-center justify-center ${
                 dragActive
-                  ? "border-indigo-500 bg-indigo-50/50"
-                  : "border-gray-300 hover:border-indigo-400 bg-gray-50/50"
+                  ? "border-cyan-500 bg-cyan-950/20 shadow-inner"
+                  : "border-zinc-800 hover:border-zinc-700 bg-zinc-950/40 hover:bg-zinc-950/60"
               }`}
             >
               <input
@@ -310,29 +350,31 @@ export default function CsvImportPage() {
                 onChange={handleFileChange}
               />
 
-              <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 mb-3">
-                <Upload className="w-6 h-6" />
+              <div className="w-12 h-12 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-300 mb-3 shadow-md">
+                <Upload className="w-5 h-5 text-cyan-400" />
               </div>
 
-              <p className="text-base font-medium text-gray-800 mb-1">
+              <p className="text-sm font-medium text-zinc-200 mb-1">
                 Tarik dan lepas file CSV di sini, atau klik untuk memilih file
               </p>
-              <p className="text-xs text-gray-500 max-w-sm">
-                Maksimal 500 baris data per file. Ukuran berkas maksimal 5 MB.
+              <p className="text-xs text-zinc-500 max-w-sm">
+                Maksimal 500 baris data postingan per unggahan. Ukuran berkas maksimal 5 MB.
               </p>
             </div>
 
-            {/* File Terpilih */}
+            {/* File Terpilih Box */}
             {file && (
-              <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-between">
+              <div className="p-4 bg-zinc-950/60 border border-zinc-800 rounded-xl flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <FileSpreadsheet className="w-8 h-8 text-green-600 shrink-0" />
+                  <div className="w-9 h-9 rounded-lg bg-emerald-950/50 border border-emerald-800/50 flex items-center justify-center text-emerald-400 shrink-0">
+                    <FileSpreadsheet className="w-5 h-5" />
+                  </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-800">
+                    <p className="text-xs font-medium text-zinc-200">
                       {file.name}
                     </p>
-                    <p className="text-xs text-gray-500">
-                      {(file.size / 1024).toFixed(1)} KB
+                    <p className="text-[11px] text-zinc-500">
+                      {(file.size / 1024).toFixed(1)} KB • Siap diproses
                     </p>
                   </div>
                 </div>
@@ -342,65 +384,73 @@ export default function CsvImportPage() {
                     e.stopPropagation();
                     setFile(null);
                   }}
-                  className="text-gray-400 hover:text-gray-600 p-1"
+                  className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
+                  title="Batalkan pilihan berkas"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-4 h-4" />
                 </button>
               </div>
             )}
 
             {/* Panduan Format Kolom CSV */}
-            <div className="p-4 bg-blue-50/60 border border-blue-100 rounded-lg space-y-2 text-xs text-blue-900">
-              <p className="font-semibold flex items-center gap-1.5">
-                <FileCheck className="w-4 h-4 text-blue-700" />
-                Format Kolom CSV yang Diperlukan:
-              </p>
-              <ul className="list-disc list-inside space-y-1 text-blue-800 pl-1">
-                <li>
-                  <span className="font-mono font-semibold">platform</span>:{" "}
-                  <code className="text-blue-900">facebook</code>,{" "}
-                  <code className="text-blue-900">instagram</code>, atau{" "}
-                  <code className="text-blue-900">tiktok</code>
+            <div className="p-4 bg-zinc-950/60 border border-zinc-800/80 rounded-xl space-y-2.5 text-xs text-zinc-300">
+              <div className="flex items-center gap-2 text-zinc-200 font-semibold">
+                <FileCheck className="w-4 h-4 text-cyan-400" />
+                <span>Panduan Format Kolom CSV yang Diperlukan:</span>
+              </div>
+              <ul className="space-y-1.5 text-zinc-400 pl-1 list-none">
+                <li className="flex items-start gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shrink-0 mt-1.5" />
+                  <div>
+                    <code className="text-zinc-200 font-semibold font-mono bg-zinc-900 px-1 py-0.5 rounded border border-zinc-800">platform</code>: Nilai platform tujuan (pilihan: <code className="text-cyan-300">facebook</code>, <code className="text-cyan-300">instagram</code>, <code className="text-cyan-300">tiktok</code>, atau <code className="text-cyan-300">threads</code>).
+                  </div>
                 </li>
-                <li>
-                  <span className="font-mono font-semibold">scheduled_at</span>:{" "}
-                  Format ISO 8601 di masa depan (contoh:{" "}
-                  <code className="text-blue-900">2026-10-15T14:30:00Z</code>)
+                <li className="flex items-start gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shrink-0 mt-1.5" />
+                  <div>
+                    <code className="text-zinc-200 font-semibold font-mono bg-zinc-900 px-1 py-0.5 rounded border border-zinc-800">text_content</code>: Isi konten teks postingan (maksimal 2.000 karakter).
+                  </div>
                 </li>
-                <li>
-                  <span className="font-mono font-semibold">text_content</span>:{" "}
-                  Teks konten postingan (maksimal 2.000 karakter)
+                <li className="flex items-start gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shrink-0 mt-1.5" />
+                  <div>
+                    <code className="text-zinc-200 font-semibold font-mono bg-zinc-900 px-1 py-0.5 rounded border border-zinc-800">scheduled_at</code>: Waktu tayang format ISO 8601 di masa depan (contoh: <code className="text-zinc-300">2026-10-15T14:30:00Z</code>). Kosongkan jika ingin disimpan sebagai Draft.
+                  </div>
                 </li>
-                <li>
-                  <span className="font-mono font-semibold">media_url</span>:{" "}
-                  URL gambar/video (opsional, diawali http:// atau https://)
+                <li className="flex items-start gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shrink-0 mt-1.5" />
+                  <div>
+                    <code className="text-zinc-200 font-semibold font-mono bg-zinc-900 px-1 py-0.5 rounded border border-zinc-800">media_url</code>: URL berkas media gambar/video publik (opsional, diawali <code className="text-zinc-300">http://</code> atau <code className="text-zinc-300">https://</code>).
+                  </div>
                 </li>
               </ul>
             </div>
 
             {/* Tombol Aksi */}
-            <div className="flex justify-end gap-3 pt-2">
+            <div className="flex justify-end items-center gap-2.5 pt-2 border-t border-zinc-800/60">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => router.push("/posts")}
+                className="text-xs"
               >
                 Batal
               </Button>
               <Button
                 type="button"
+                variant="primary"
                 disabled={!file || isUploading}
                 onClick={handleUpload}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white min-w-[140px]"
+                className="text-xs min-w-[140px]"
               >
                 {isUploading ? (
                   <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Memproses...
+                    <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
+                    Memproses CSV...
                   </>
                 ) : (
                   <>
-                    <Upload className="w-4 h-4 mr-2" />
+                    <Upload className="w-3.5 h-3.5 mr-2" />
                     Proses File CSV
                   </>
                 )}

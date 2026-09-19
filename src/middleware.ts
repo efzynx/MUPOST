@@ -62,6 +62,12 @@ export function middleware(request: NextRequest): NextResponse {
   }
 
   // 2. Redirect Middleware untuk Halaman UI
+  // Root path (/) -> redirect cerdas ke /dashboard jika sudah login, atau /login jika belum
+  if (pathname === "/") {
+    const targetUrl = sessionCookie ? "/dashboard" : "/login";
+    return NextResponse.redirect(new URL(targetUrl, request.url));
+  }
+
   // a. Jika sudah login dan mengakses /login atau /register -> redirect ke /dashboard
   if (
     sessionCookie &&
