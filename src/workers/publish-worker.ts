@@ -27,6 +27,29 @@ export interface PublishExecutionResult {
   results: PlatformPublishResult[];
 }
 
+export interface InstagramPublishOptions {
+  pollIntervalMs?: number;
+  maxPolls?: number;
+  publishRetryDelayMs?: number;
+  maxPublishAttempts?: number;
+}
+
+interface MetaApiError {
+  message?: string;
+  type?: string;
+  code?: number | string;
+  error_subcode?: number;
+}
+
+interface MetaApiResponse {
+  id?: string;
+  post_id?: string;
+  status_code?: string;
+  status?: string;
+  error_message?: string;
+  error?: MetaApiError;
+}
+
 const DEFAULT_TIMEOUT_MS = 30_000; // 30 detik (Requirement 11.7)
 
 // ==========================================
@@ -156,14 +179,16 @@ export async function publishToMeta(
 /**
  * Publikasi ke Instagram Business via Instagram Graph API (Two-step flow)
  * - Langkah 1: POST /{ig_user_id}/media (buat container)
- * - Langkah 2: POST /{ig_user_id}/media_publish (publikasikan container)
+ * - Langkah 2: Polling status container (untuk video/Reels) hingga status bernilai FINISHED
+ * - Langkah 3: POST /{ig_user_id}/media_publish (publikasikan container dengan retry)
  */
 export async function publishToInstagram(
   targetId: string,
   post: { textContent: string; mediaUrls?: string[] | null },
   account: { platformAccountId: string },
   accessToken: string,
-  timeoutMs = DEFAULT_TIMEOUT_MS
+  timeoutMs = DEFAULT_TIMEOUT_MS,
+  options?: InstagramPublishOptions
 ): Promise<PlatformPublishResult> {
   const igUserId = account.platformAccountId;
   const firstMedia = post.mediaUrls && post.mediaUrls.length > 0 ? post.mediaUrls[0] : null;
@@ -178,7 +203,7 @@ export async function publishToInstagram(
     };
   }
 
-  const isVideo = firstMedia.match(/\.(mp4|mov|webm)$/i);
+  const isVideo = Boolean(firstMedia.match(/\.(mp4|mov|webm)($|\?)/i));
 
   try {
     // Step 1: Create Container
@@ -203,7 +228,7 @@ export async function publishToInstagram(
       timeoutMs
     );
 
-    const containerJson = await containerRes.json().catch(() => ({}));
+    const containerJson: MetaApiResponse = await containerRes.json().catch(() => ({}));
 
     if (!containerRes.ok || containerJson.error) {
       const err = containerJson.error || {};
@@ -225,14 +250,26 @@ export async function publishToInstagram(
     }
 
     const creationId = containerJson.id;
+    if (!creationId) {
+      return {
+        targetId,
+        platform: "INSTAGRAM",
+        success: false,
+        errorCode: "INVALID_CONTAINER_RESPONSE",
+        errorMessage: "Respon pembuatan container Instagram tidak mengembalikan creation ID.",
+      };
+    }
 
     // Untuk video/Reels, Instagram Graph API memproses media secara asinkron.
     // Jika media_publish dipanggil sebelum container berstatus "FINISHED",
     // Instagram mengembalikan error 9007: "Media ID is not available".
     if (isVideo) {
-      const maxPolls = 20; // Polling hingga 40 detik (20 x 2 detik)
+      const maxPolls = options?.maxPolls ?? 20; // Default polling hingga 40 detik (20 x 2 detik)
+      const pollIntervalMs = options?.pollIntervalMs ?? 2000;
+      let isReady = false;
+
       for (let poll = 0; poll < maxPolls; poll++) {
-        await new Promise((resolve) => setTimeout(resolve, 2000));
+        await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
 
         try {
           const statusRes = await fetchWithTimeout(
@@ -242,8 +279,9 @@ export async function publishToInstagram(
           );
 
           if (statusRes.ok) {
-            const statusData = await statusRes.json().catch(() => ({}));
+            const statusData: MetaApiResponse = await statusRes.json().catch(() => ({}));
             if (statusData.status_code === "FINISHED") {
+              isReady = true;
               break;
             } else if (statusData.status_code === "ERROR") {
               return {
@@ -251,13 +289,57 @@ export async function publishToInstagram(
                 platform: "INSTAGRAM",
                 success: false,
                 errorCode: "CONTAINER_PROCESSING_FAILED",
-                errorMessage: "Pemrosesan media video di server Instagram gagal.",
+                errorMessage:
+                  statusData.error_message ||
+                  statusData.status ||
+                  "Pemrosesan media video di server Instagram gagal.",
               };
+            } else if (statusData.status_code === "EXPIRED") {
+              return {
+                targetId,
+                platform: "INSTAGRAM",
+                success: false,
+                errorCode: "CONTAINER_EXPIRED",
+                errorMessage: "Container video Instagram kedaluwarsa sebelum dapat dipublikasikan.",
+              };
+            }
+          } else {
+            const statusData: MetaApiResponse = await statusRes.json().catch(() => ({}));
+            if (statusData.error) {
+              const err = statusData.error;
+              const isAuthError =
+                err.type === "OAuthException" ||
+                String(err.code) === "190" ||
+                err.error_subcode === 463 ||
+                statusRes.status === 401;
+
+              if (isAuthError) {
+                return {
+                  targetId,
+                  platform: "INSTAGRAM",
+                  success: false,
+                  errorCode: String(err.code || statusRes.status),
+                  errorMessage:
+                    err.message ||
+                    "Autentikasi Instagram tidak valid saat polling status container.",
+                  needsReauth: true,
+                };
+              }
             }
           }
         } catch {
           // Lanjutkan polling jika terjadi kegagalan jaringan sementara
         }
+      }
+
+      if (!isReady) {
+        return {
+          targetId,
+          platform: "INSTAGRAM",
+          success: false,
+          errorCode: "CONTAINER_TIMEOUT",
+          errorMessage: "Batas waktu pemrosesan media video di server Instagram terlampaui.",
+        };
       }
     }
 
@@ -267,8 +349,9 @@ export async function publishToInstagram(
     publishParams.append("creation_id", creationId);
 
     let publishRes: Response | null = null;
-    let publishJson: any = {};
-    const maxPublishAttempts = 3;
+    let publishJson: MetaApiResponse = {};
+    const maxPublishAttempts = options?.maxPublishAttempts ?? 3;
+    const publishRetryDelayMs = options?.publishRetryDelayMs ?? 3000;
 
     for (let pAttempt = 0; pAttempt < maxPublishAttempts; pAttempt++) {
       publishRes = await fetchWithTimeout(
@@ -289,10 +372,19 @@ export async function publishToInstagram(
 
       const err = publishJson.error || {};
       const errCode = String(err.code || "");
+      const errMsg = String(err.message || "");
 
-      // Error 9007 ("Media ID is not available") dapat terjadi jika container belum sepenuhnya siap
-      if ((errCode === "9007" || errCode === "24") && pAttempt < maxPublishAttempts - 1) {
-        await new Promise((resolve) => setTimeout(resolve, 3000));
+      // Error 9007 ("Media ID is not available"), subcode 2207027 ("The media is not ready for publishing..."),
+      // atau error 24 dapat terjadi jika container belum sepenuhnya tereplikasi di infrastruktur Meta
+      const isMediaNotReady =
+        errCode === "9007" ||
+        errCode === "24" ||
+        err.error_subcode === 2207027 ||
+        errMsg.toLowerCase().includes("media id is not available") ||
+        errMsg.toLowerCase().includes("not ready");
+
+      if (isMediaNotReady && pAttempt < maxPublishAttempts - 1) {
+        await new Promise((resolve) => setTimeout(resolve, publishRetryDelayMs));
         continue;
       }
 
@@ -301,12 +393,20 @@ export async function publishToInstagram(
 
     if (!publishRes || !publishRes.ok || publishJson.error) {
       const err = publishJson.error || {};
+      const errorCode = String(err.code || publishRes?.status || "PUBLISH_FAILED");
+      const isAuthError =
+        err.type === "OAuthException" ||
+        errorCode === "190" ||
+        err.error_subcode === 463 ||
+        publishRes?.status === 401;
+
       return {
         targetId,
         platform: "INSTAGRAM",
         success: false,
-        errorCode: String(err.code || publishRes?.status || "PUBLISH_FAILED"),
+        errorCode,
         errorMessage: err.message || "Gagal mempublikasikan Instagram container",
+        needsReauth: isAuthError,
       };
     }
 
@@ -317,14 +417,16 @@ export async function publishToInstagram(
       platformPostId: publishJson.id,
       publishedAt: new Date(),
     };
-  } catch (error: any) {
-    const isTimeout = error.name === "TimeoutError";
+  } catch (error: unknown) {
+    const isError = error instanceof Error;
+    const isTimeout = isError && error.name === "TimeoutError";
+    const errorMessage = isError ? error.message : "Gagal menghubungi server Instagram";
     return {
       targetId,
       platform: "INSTAGRAM",
       success: false,
       errorCode: isTimeout ? "TIMEOUT" : "FETCH_ERROR",
-      errorMessage: error.message || "Gagal menghubungi server Instagram",
+      errorMessage,
     };
   }
 }
