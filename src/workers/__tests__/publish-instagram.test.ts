@@ -27,6 +27,25 @@ describe("publishToInstagram", () => {
     expect(result.platform).toBe("INSTAGRAM");
   });
 
+  it("should fail when container response does not have creation ID", async () => {
+    global.fetch = jest.fn().mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({}), // missing id
+    } as unknown as Response);
+
+    const result = await publishToInstagram(
+      mockTargetId,
+      { textContent: "Caption", mediaUrls: ["https://example.com/video.mp4"] },
+      mockAccount,
+      mockAccessToken
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.errorCode).toBe("INVALID_CONTAINER_RESPONSE");
+    expect(result.errorMessage).toContain("tidak mengembalikan creation ID");
+  });
+
   it("should return failure when container creation fails", async () => {
     global.fetch = jest.fn().mockResolvedValueOnce({
       ok: false,
@@ -390,6 +409,94 @@ describe("publishToInstagram", () => {
     expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 
+  it("should retry media_publish when receiving error code 24 and succeed on retry", async () => {
+    const fetchMock = jest.fn();
+    // 1. Container creation
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ id: "creation-123" }),
+    });
+    // 2. Status polling -> FINISHED
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ status_code: "FINISHED", id: "creation-123" }),
+    });
+    // 3. Media publish attempt 1 -> Error code 24
+    fetchMock.mockResolvedValueOnce({
+      ok: false,
+      status: 400,
+      json: async () => ({
+        error: {
+          code: 24,
+          message: "Media is not ready for publishing yet",
+          type: "OAuthException",
+        },
+      }),
+    });
+    // 4. Media publish attempt 2 -> Success
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ id: "media-pub-err24-retry-ok" }),
+    });
+
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const result = await publishToInstagram(
+      mockTargetId,
+      { textContent: "Reels video", mediaUrls: ["https://example.com/video.mp4"] },
+      mockAccount,
+      mockAccessToken,
+      5000,
+      { pollIntervalMs: 1, maxPolls: 3, publishRetryDelayMs: 1, maxPublishAttempts: 3 }
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.platformPostId).toBe("media-pub-err24-retry-ok");
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+  });
+
+  it("should recover and succeed when transient network failure occurs during status polling", async () => {
+    const fetchMock = jest.fn();
+    // 1. Container creation
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ id: "creation-123" }),
+    });
+    // 2. Status polling -> Network rejection
+    fetchMock.mockRejectedValueOnce(new Error("Network glitch"));
+    // 3. Status polling -> FINISHED
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ status_code: "FINISHED", id: "creation-123" }),
+    });
+    // 4. Media publish -> success
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ id: "media-pub-transient-ok" }),
+    });
+
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const result = await publishToInstagram(
+      mockTargetId,
+      { textContent: "Reels video", mediaUrls: ["https://example.com/video.mp4"] },
+      mockAccount,
+      mockAccessToken,
+      5000,
+      { pollIntervalMs: 1, maxPolls: 5 }
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.platformPostId).toBe("media-pub-transient-ok");
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+  });
+
   it("should fail when all media_publish retries return Error 9007", async () => {
     const fetchMock = jest.fn();
     // 1. Container creation
@@ -517,5 +624,37 @@ describe("publishToInstagram", () => {
     const createBody = fetchMock.mock.calls[0][1].body;
     expect(createBody).toContain("image_url=https%3A%2F%2Fexample.com%2Fphoto.jpg");
     expect(createBody).not.toContain("media_type=REELS");
+  });
+
+  it("should handle TimeoutError gracefully", async () => {
+    const timeoutErr = new Error("Request timed out after 5000ms");
+    timeoutErr.name = "TimeoutError";
+    global.fetch = jest.fn().mockRejectedValueOnce(timeoutErr);
+
+    const result = await publishToInstagram(
+      mockTargetId,
+      { textContent: "Video post", mediaUrls: ["https://example.com/video.mp4"] },
+      mockAccount,
+      mockAccessToken
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.errorCode).toBe("TIMEOUT");
+    expect(result.errorMessage).toContain("Request timed out");
+  });
+
+  it("should handle general network fetch error gracefully", async () => {
+    global.fetch = jest.fn().mockRejectedValueOnce(new Error("Connection refused"));
+
+    const result = await publishToInstagram(
+      mockTargetId,
+      { textContent: "Video post", mediaUrls: ["https://example.com/video.mp4"] },
+      mockAccount,
+      mockAccessToken
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.errorCode).toBe("FETCH_ERROR");
+    expect(result.errorMessage).toBe("Connection refused");
   });
 });
