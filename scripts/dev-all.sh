@@ -9,7 +9,7 @@
 # Features:
 #   - Color-prefixed log output per process
 #   - Graceful shutdown: SIGINT / SIGTERM terminates all child processes
-#   - Non-zero exit code if any process exits unexpectedly
+#   - Detects child process exits and stops all processes cleanly
 #
 # Usage:
 #   bash scripts/dev-all.sh
@@ -17,7 +17,7 @@
 #   npm run dev:all
 # =============================================================================
 
-set -euo pipefail
+set -uo pipefail
 
 # ── Colors ────────────────────────────────────────────────────────────────────
 BOLD='\033[1m'
@@ -35,13 +35,20 @@ info() { echo -e "${BOLD}${GREEN}[dev:all]${RESET} $*"; }
 err()  { echo -e "${BOLD}${RED}[dev:all]${RESET} $*" >&2; }
 
 # ── State ─────────────────────────────────────────────────────────────────────
-PIDS=()
+WEB_PID=""
+WORKER_PID=""
 EXIT_CODE=0
 
 # ── Graceful shutdown ─────────────────────────────────────────────────────────
 cleanup() {
+  trap - SIGINT SIGTERM EXIT
   log "Shutting down all processes…"
-  for pid in "${PIDS[@]}"; do
+
+  local pids=()
+  [ -n "$WEB_PID" ] && pids+=("$WEB_PID")
+  [ -n "$WORKER_PID" ] && pids+=("$WORKER_PID")
+
+  for pid in "${pids[@]}"; do
     if kill -0 "$pid" 2>/dev/null; then
       kill -TERM "$pid" 2>/dev/null || true
     fi
@@ -49,15 +56,14 @@ cleanup() {
 
   # Give processes up to 5 seconds to exit gracefully
   local deadline=$(( $(date +%s) + 5 ))
-  for pid in "${PIDS[@]}"; do
-    local remaining=$(( deadline - $(date +%s) ))
-    if [ $remaining -gt 0 ] && kill -0 "$pid" 2>/dev/null; then
-      wait "$pid" 2>/dev/null || true
-    fi
+  for pid in "${pids[@]}"; do
+    while kill -0 "$pid" 2>/dev/null && [ $(date +%s) -lt $deadline ]; do
+      sleep 0.2
+    done
   done
 
   # Force-kill any survivors
-  for pid in "${PIDS[@]}"; do
+  for pid in "${pids[@]}"; do
     if kill -0 "$pid" 2>/dev/null; then
       err "Force-killing PID $pid"
       kill -KILL "$pid" 2>/dev/null || true
@@ -68,36 +74,7 @@ cleanup() {
   exit $EXIT_CODE
 }
 
-trap cleanup SIGINT SIGTERM
-
-# ── Helpers ───────────────────────────────────────────────────────────────────
-
-# Run a command, prefix each output line, and track the PID
-run_prefixed() {
-  local prefix="$1"
-  shift
-  ( "$@" 2>&1 | while IFS= read -r line; do
-      echo -e "${prefix} ${line}"
-    done ) &
-  PIDS+=($!)
-}
-
-# Watch a PID; set EXIT_CODE and trigger cleanup if it exits unexpectedly
-watch_pid() {
-  local pid=$1
-  local name=$2
-  ( wait "$pid"
-    local code=$?
-    if [ $code -ne 0 ]; then
-      err "Process '${name}' (PID ${pid}) exited with code ${code}"
-      EXIT_CODE=$code
-    else
-      log "Process '${name}' (PID ${pid}) exited cleanly."
-    fi
-    # Signal the main process to shut everything down
-    kill -TERM $$ 2>/dev/null || true
-  ) &
-}
+trap cleanup SIGINT SIGTERM EXIT
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 info "Starting Mupost development environment…"
@@ -105,19 +82,21 @@ log  "Press Ctrl+C to stop all processes."
 echo ""
 
 # 1. Next.js development server
-run_prefixed "$PREFIX_WEB" npm run dev
-WEB_PID=${PIDS[-1]}
+npm run dev 2>&1 | while IFS= read -r line; do
+  echo -e "${PREFIX_WEB} ${line}"
+done &
+WEB_PID=$!
 
-# 2. BullMQ worker (all workers via index.ts)
-run_prefixed "$PREFIX_WORKER" npm run worker
-WORKER_PID=${PIDS[-1]}
+# 2. BullMQ worker
+npm run worker 2>&1 | while IFS= read -r line; do
+  echo -e "${PREFIX_WORKER} ${line}"
+done &
+WORKER_PID=$!
 
 info "Running: next.js PID=${WEB_PID} | worker PID=${WORKER_PID}"
 echo ""
 
-# Watch both processes — if either exits, trigger cleanup
-watch_pid "$WEB_PID"    "next.js dev server"
-watch_pid "$WORKER_PID" "BullMQ worker"
-
-# Wait indefinitely (cleanup is triggered by trap or watch_pid)
-wait
+# Wait for any child process to terminate
+wait -n "$WEB_PID" "$WORKER_PID" 2>/dev/null || true
+EXIT_CODE=$?
+cleanup
