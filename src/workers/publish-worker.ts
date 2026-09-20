@@ -226,30 +226,86 @@ export async function publishToInstagram(
 
     const creationId = containerJson.id;
 
-    // Step 2: Publish Container
+    // Untuk video/Reels, Instagram Graph API memproses media secara asinkron.
+    // Jika media_publish dipanggil sebelum container berstatus "FINISHED",
+    // Instagram mengembalikan error 9007: "Media ID is not available".
+    if (isVideo) {
+      const maxPolls = 20; // Polling hingga 40 detik (20 x 2 detik)
+      for (let poll = 0; poll < maxPolls; poll++) {
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+
+        try {
+          const statusRes = await fetchWithTimeout(
+            `https://graph.facebook.com/v19.0/${creationId}?fields=status_code&access_token=${accessToken}`,
+            { method: "GET" },
+            10000
+          );
+
+          if (statusRes.ok) {
+            const statusData = await statusRes.json().catch(() => ({}));
+            if (statusData.status_code === "FINISHED") {
+              break;
+            } else if (statusData.status_code === "ERROR") {
+              return {
+                targetId,
+                platform: "INSTAGRAM",
+                success: false,
+                errorCode: "CONTAINER_PROCESSING_FAILED",
+                errorMessage: "Pemrosesan media video di server Instagram gagal.",
+              };
+            }
+          }
+        } catch {
+          // Lanjutkan polling jika terjadi kegagalan jaringan sementara
+        }
+      }
+    }
+
+    // Step 2: Publish Container (dengan retry jika ada replikasi / delay sementara)
     const publishParams = new URLSearchParams();
     publishParams.append("access_token", accessToken);
     publishParams.append("creation_id", creationId);
 
-    const publishRes = await fetchWithTimeout(
-      `https://graph.facebook.com/v19.0/${igUserId}/media_publish`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: publishParams.toString(),
-      },
-      timeoutMs
-    );
+    let publishRes: Response | null = null;
+    let publishJson: any = {};
+    const maxPublishAttempts = 3;
 
-    const publishJson = await publishRes.json().catch(() => ({}));
+    for (let pAttempt = 0; pAttempt < maxPublishAttempts; pAttempt++) {
+      publishRes = await fetchWithTimeout(
+        `https://graph.facebook.com/v19.0/${igUserId}/media_publish`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: publishParams.toString(),
+        },
+        timeoutMs
+      );
 
-    if (!publishRes.ok || publishJson.error) {
+      publishJson = await publishRes.json().catch(() => ({}));
+
+      if (publishRes.ok && !publishJson.error) {
+        break;
+      }
+
+      const err = publishJson.error || {};
+      const errCode = String(err.code || "");
+
+      // Error 9007 ("Media ID is not available") dapat terjadi jika container belum sepenuhnya siap
+      if ((errCode === "9007" || errCode === "24") && pAttempt < maxPublishAttempts - 1) {
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+        continue;
+      }
+
+      break;
+    }
+
+    if (!publishRes || !publishRes.ok || publishJson.error) {
       const err = publishJson.error || {};
       return {
         targetId,
         platform: "INSTAGRAM",
         success: false,
-        errorCode: String(err.code || publishRes.status),
+        errorCode: String(err.code || publishRes?.status || "PUBLISH_FAILED"),
         errorMessage: err.message || "Gagal mempublikasikan Instagram container",
       };
     }
