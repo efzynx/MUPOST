@@ -173,17 +173,11 @@ export function MupostBrand({
   return (
     <div className={cn("flex items-center gap-2.5 select-none", className)}>
       <div className="flex items-center justify-center">
-        <MupostLogo
-          variant={variant}
-          className={cn("text-zinc-100", iconSizes[size])}
-        />
+        <MupostLogo variant={variant} className={cn("text-zinc-100", iconSizes[size])} />
       </div>
       <div className="flex flex-col">
         <span
-          className={cn(
-            "font-bold tracking-tight text-zinc-100 leading-none",
-            textSizes[size]
-          )}
+          className={cn("font-bold tracking-tight text-zinc-100 leading-none", textSizes[size])}
         >
           Mupost
         </span>

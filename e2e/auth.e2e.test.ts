@@ -24,7 +24,10 @@ test.describe("E2E 16.1: Auth Flow — Registrasi dan Login", () => {
     const available = await isServerAvailable(baseURL);
 
     if (!available) {
-      test.skip(true, `Server tidak tersedia di ${baseURL}. Jalankan 'npm run dev' terlebih dahulu.`);
+      test.skip(
+        true,
+        `Server tidak tersedia di ${baseURL}. Jalankan 'npm run dev' terlebih dahulu.`
+      );
       return;
     }
 
@@ -67,7 +70,9 @@ test.describe("E2E 16.1: Auth Flow — Registrasi dan Login", () => {
       } else {
         await route.fulfill({
           status: 401,
-          body: JSON.stringify({ error: { code: "INVALID_CREDENTIALS", message: "Email atau kata sandi tidak valid." } }),
+          body: JSON.stringify({
+            error: { code: "INVALID_CREDENTIALS", message: "Email atau kata sandi tidak valid." },
+          }),
         });
       }
     });
@@ -78,7 +83,9 @@ test.describe("E2E 16.1: Auth Flow — Registrasi dan Login", () => {
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
-          data: { user: { id: "mock-user-uuid-001", email: "test@mupost.com", fullName: "Test User" } },
+          data: {
+            user: { id: "mock-user-uuid-001", email: "test@mupost.com", fullName: "Test User" },
+          },
         }),
       });
     });

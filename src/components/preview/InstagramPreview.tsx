@@ -2,7 +2,14 @@
 
 import React from "react";
 import { InstagramLogo } from "@/components/ui/platform-icons";
-import { Heart, MessageCircle, Send, Bookmark, MoreHorizontal, Image as ImageIcon } from "lucide-react";
+import {
+  Heart,
+  MessageCircle,
+  Send,
+  Bookmark,
+  MoreHorizontal,
+  Image as ImageIcon,
+} from "lucide-react";
 
 interface InstagramPreviewProps {
   textContent: string;
@@ -40,17 +47,9 @@ export function InstagramPreview({
       <div className="w-full aspect-square bg-slate-950 flex items-center justify-center relative overflow-hidden">
         {firstMedia ? (
           isVideo ? (
-            <video
-              src={firstMedia}
-              controls
-              className="w-full h-full object-cover"
-            />
+            <video src={firstMedia} controls className="w-full h-full object-cover" />
           ) : (
-            <img
-              src={firstMedia}
-              alt="Instagram preview"
-              className="w-full h-full object-cover"
-            />
+            <img src={firstMedia} alt="Instagram preview" className="w-full h-full object-cover" />
           )
         ) : (
           <div className="flex flex-col items-center justify-center gap-2 p-6 text-center text-slate-400 dark:text-slate-500">
@@ -85,9 +84,7 @@ export function InstagramPreview({
             {textContent}
           </span>
         ) : (
-          <span className="text-slate-400 dark:text-slate-500 italic">
-            Tambahkan caption...
-          </span>
+          <span className="text-slate-400 dark:text-slate-500 italic">Tambahkan caption...</span>
         )}
       </div>
     </div>

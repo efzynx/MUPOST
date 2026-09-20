@@ -18,8 +18,7 @@ const withPWA = withPWAInit({
       },
       // 2. NetworkFirst untuk GET /api/posts (5 menit fallback)
       {
-        urlPattern: ({ url, request }) =>
-          url.pathname === "/api/posts" && request.method === "GET",
+        urlPattern: ({ url, request }) => url.pathname === "/api/posts" && request.method === "GET",
         handler: "NetworkFirst",
         options: {
           cacheName: "api-posts-cache",

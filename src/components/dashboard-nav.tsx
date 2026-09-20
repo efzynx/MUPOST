@@ -5,14 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
-import {
-  LayoutDashboard,
-  FileText,
-  PlusSquare,
-  UploadCloud,
-  Share2,
-  LogOut,
-} from "lucide-react";
+import { LayoutDashboard, FileText, PlusSquare, UploadCloud, Share2, LogOut } from "lucide-react";
 import { MupostLogo } from "@/components/ui/logo";
 
 interface NavItem {
@@ -51,9 +44,7 @@ export function DashboardSidebar() {
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-900 border border-zinc-800 p-1.5 shadow-sm select-none">
           <MupostLogo className="w-full h-full text-zinc-100" />
         </div>
-        <span className="font-semibold text-sm tracking-tight text-zinc-100">
-          Mupost
-        </span>
+        <span className="font-semibold text-sm tracking-tight text-zinc-100">Mupost</span>
       </div>
 
       {/* Nav List */}
@@ -62,7 +53,12 @@ export function DashboardSidebar() {
           const Icon = item.icon;
           const isActive =
             item.href === "/posts"
-              ? pathname === "/posts" || pathname.startsWith("/posts/") && !NAV_ITEMS.some((n) => n.href !== "/posts" && (pathname === n.href || pathname.startsWith(n.href)))
+              ? pathname === "/posts" ||
+                (pathname.startsWith("/posts/") &&
+                  !NAV_ITEMS.some(
+                    (n) =>
+                      n.href !== "/posts" && (pathname === n.href || pathname.startsWith(n.href))
+                  ))
               : pathname === item.href || pathname.startsWith(`${item.href}/`);
 
           return (
@@ -76,7 +72,9 @@ export function DashboardSidebar() {
                   : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50"
               )}
             >
-              <Icon className={cn("w-4 h-4 shrink-0", isActive ? "text-zinc-100" : "text-zinc-500")} />
+              <Icon
+                className={cn("w-4 h-4 shrink-0", isActive ? "text-zinc-100" : "text-zinc-500")}
+              />
               <span>{item.label}</span>
             </Link>
           );
@@ -116,9 +114,7 @@ export function MobileHeader() {
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-900 border border-zinc-800 p-1.5 shadow-sm select-none">
           <MupostLogo className="w-full h-full text-zinc-100" />
         </div>
-        <span className="font-semibold text-sm tracking-tight text-zinc-100">
-          Mupost
-        </span>
+        <span className="font-semibold text-sm tracking-tight text-zinc-100">Mupost</span>
       </div>
 
       <button
@@ -141,7 +137,11 @@ export function MobileBottomNav() {
         const Icon = item.icon;
         const isActive =
           item.href === "/posts"
-            ? pathname === "/posts" || (pathname.startsWith("/posts/") && !NAV_ITEMS.some((n) => n.href !== "/posts" && (pathname === n.href || pathname.startsWith(n.href))))
+            ? pathname === "/posts" ||
+              (pathname.startsWith("/posts/") &&
+                !NAV_ITEMS.some(
+                  (n) => n.href !== "/posts" && (pathname === n.href || pathname.startsWith(n.href))
+                ))
             : pathname === item.href || pathname.startsWith(`${item.href}/`);
 
         return (

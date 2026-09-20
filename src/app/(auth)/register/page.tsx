@@ -91,8 +91,7 @@ export default function RegisterPage() {
           setFieldErrors(mapped);
         }
         setGeneralError(
-          response.data?.error?.message ||
-            "Pendaftaran gagal. Silakan periksa kembali data Anda."
+          response.data?.error?.message || "Pendaftaran gagal. Silakan periksa kembali data Anda."
         );
         setIsLoading(false);
         return;
@@ -100,9 +99,7 @@ export default function RegisterPage() {
 
       router.push(response.data?.redirect || "/dashboard");
     } catch {
-      setGeneralError(
-        "Gagal menghubungi server. Silakan periksa koneksi internet Anda."
-      );
+      setGeneralError("Gagal menghubungi server. Silakan periksa koneksi internet Anda.");
       setIsLoading(false);
     }
   };
@@ -115,9 +112,7 @@ export default function RegisterPage() {
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-zinc-900 border border-zinc-800 p-2.5 mb-3 shadow-lg shadow-black/40 select-none">
             <MupostLogo className="w-full h-full text-zinc-100" />
           </div>
-          <h1 className="text-xl font-semibold tracking-tight text-zinc-100">
-            Mupost
-          </h1>
+          <h1 className="text-xl font-semibold tracking-tight text-zinc-100">Mupost</h1>
           <p className="text-xs text-zinc-400 mt-1">
             Buat akun baru untuk mulai menjadwalkan konten
           </p>
@@ -158,17 +153,12 @@ export default function RegisterPage() {
                   error={Boolean(fieldErrors.fullName)}
                 />
                 {fieldErrors.fullName && (
-                  <p className="text-red-400 text-xs mt-1">
-                    {fieldErrors.fullName}
-                  </p>
+                  <p className="text-red-400 text-xs mt-1">{fieldErrors.fullName}</p>
                 )}
               </div>
 
               <div>
-                <label
-                  htmlFor="email"
-                  className="block text-xs font-medium text-zinc-300 mb-1.5"
-                >
+                <label htmlFor="email" className="block text-xs font-medium text-zinc-300 mb-1.5">
                   Alamat Email
                 </label>
                 <Input
@@ -182,9 +172,7 @@ export default function RegisterPage() {
                   error={Boolean(fieldErrors.email)}
                 />
                 {fieldErrors.email && (
-                  <p className="text-red-400 text-xs mt-1">
-                    {fieldErrors.email}
-                  </p>
+                  <p className="text-red-400 text-xs mt-1">{fieldErrors.email}</p>
                 )}
               </div>
 
@@ -214,30 +202,17 @@ export default function RegisterPage() {
                     tabIndex={-1}
                     aria-label={showPassword ? "Sembunyikan kata sandi" : "Tampilkan kata sandi"}
                   >
-                    {showPassword ? (
-                      <EyeOff className="w-4 h-4" />
-                    ) : (
-                      <Eye className="w-4 h-4" />
-                    )}
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
                 {fieldErrors.password ? (
-                  <p className="text-red-400 text-xs mt-1">
-                    {fieldErrors.password}
-                  </p>
+                  <p className="text-red-400 text-xs mt-1">{fieldErrors.password}</p>
                 ) : (
-                  <p className="text-zinc-500 text-[11px] mt-1">
-                    Gunakan 8 hingga 128 karakter.
-                  </p>
+                  <p className="text-zinc-500 text-[11px] mt-1">Gunakan 8 hingga 128 karakter.</p>
                 )}
               </div>
 
-              <Button
-                type="submit"
-                variant="primary"
-                className="w-full mt-2"
-                isLoading={isLoading}
-              >
+              <Button type="submit" variant="primary" className="w-full mt-2" isLoading={isLoading}>
                 Daftar Akun
               </Button>
             </form>

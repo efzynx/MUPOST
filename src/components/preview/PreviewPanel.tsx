@@ -6,7 +6,12 @@ import { InstagramPreview } from "./InstagramPreview";
 import { TikTokPreview } from "./TikTokPreview";
 import { ThreadsPreview } from "./ThreadsPreview";
 import { PLATFORM_LIMITS } from "@/lib/services/preview-engine";
-import { FacebookLogo, InstagramLogo, TikTokLogo, ThreadsLogo } from "@/components/ui/platform-icons";
+import {
+  FacebookLogo,
+  InstagramLogo,
+  TikTokLogo,
+  ThreadsLogo,
+} from "@/components/ui/platform-icons";
 import { Badge } from "@/components/ui/badge";
 import { AlertCircle, Eye, AlertTriangle } from "lucide-react";
 
@@ -58,9 +63,7 @@ export function PreviewPanel({
         <div className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 mb-3">
           <Eye className="w-6 h-6" />
         </div>
-        <h4 className="text-sm font-semibold text-slate-200">
-          Pratinjau Postingan
-        </h4>
+        <h4 className="text-sm font-semibold text-slate-200">Pratinjau Postingan</h4>
         <p className="text-xs text-slate-400 max-w-xs mt-1 leading-relaxed">
           Pilih minimal satu akun platform tujuan di samping untuk melihat pratinjau tampilan feed.
         </p>
@@ -136,8 +139,9 @@ export function PreviewPanel({
         <div className="flex items-center gap-2.5 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs">
           <AlertTriangle className="w-4 h-4 shrink-0" />
           <span>
-            Platform <strong className="capitalize">{currentPlatform}</strong> memerlukan media
-            ({currentPlatform === "tiktok" ? "video" : "gambar atau video"}) untuk dapat dipublikasikan.
+            Platform <strong className="capitalize">{currentPlatform}</strong> memerlukan media (
+            {currentPlatform === "tiktok" ? "video" : "gambar atau video"}) untuk dapat
+            dipublikasikan.
           </span>
         </div>
       )}

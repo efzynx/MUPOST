@@ -214,10 +214,7 @@ export class PostManagerService {
       platform: acc.platform,
     }));
 
-    const insertedTargets = await db
-      .insert(postTargets)
-      .values(targetRows)
-      .returning();
+    const insertedTargets = await db.insert(postTargets).values(targetRows).returning();
 
     // Enqueue BullMQ job jika perlu
     let bullmqJobId: string | undefined;
@@ -245,10 +242,7 @@ export class PostManagerService {
         ...((newPost.meta as Record<string, unknown>) || {}),
         bullmq_job_id: bullmqJobId,
       };
-      await db
-        .update(posts)
-        .set({ meta: updatedMeta })
-        .where(eq(posts.id, newPost.id));
+      await db.update(posts).set({ meta: updatedMeta }).where(eq(posts.id, newPost.id));
       (newPost as any).meta = updatedMeta;
     }
 
@@ -418,9 +412,7 @@ export class PostManagerService {
           }
         } else {
           const jobs = await queue.getDelayed();
-          const matchingJob = jobs.find(
-            (j) => (j.data as PublishJobData).postId === postId
-          );
+          const matchingJob = jobs.find((j) => (j.data as PublishJobData).postId === postId);
           if (matchingJob) {
             await matchingJob.remove();
           }
@@ -698,9 +690,7 @@ export class PostManagerService {
           }
         } else {
           const jobs = await queue.getDelayed();
-          const matchingJob = jobs.find(
-            (j) => (j.data as PublishJobData).postId === postId
-          );
+          const matchingJob = jobs.find((j) => (j.data as PublishJobData).postId === postId);
           if (matchingJob) {
             await matchingJob.remove();
           }
@@ -720,11 +710,7 @@ export class PostManagerService {
       .where(and(eq(posts.id, postId), eq(posts.userId, userId)));
 
     const queue = getPublishQueue();
-    await queue.add(
-      `publish-now-${postId}`,
-      { postId } satisfies PublishJobData,
-      { priority: 1 }
-    );
+    await queue.add(`publish-now-${postId}`, { postId } satisfies PublishJobData, { priority: 1 });
   }
 }
 

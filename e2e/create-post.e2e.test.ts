@@ -31,7 +31,12 @@ test.describe("E2E 16.2: Create dan Publish Post", () => {
         contentType: "application/json",
         body: JSON.stringify({
           data: [
-            { id: "acct-001", platform: "META_PAGE", accountName: "My Facebook Page", status: "ACTIVE" },
+            {
+              id: "acct-001",
+              platform: "META_PAGE",
+              accountName: "My Facebook Page",
+              status: "ACTIVE",
+            },
           ],
         }),
       });

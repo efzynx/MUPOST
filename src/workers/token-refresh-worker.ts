@@ -71,10 +71,7 @@ export async function processTokenRefreshJob(
   job: Job<TokenRefreshJobData>
 ): Promise<{ success: boolean; newExpiresAt?: Date; scannedCount?: number }> {
   // Tangani scan job terjadwal (recurring scanner tiap 1 jam)
-  if (
-    job.name === "scan-expiring-tokens" ||
-    (job.data as any)?.type === "scan-expiring-tokens"
-  ) {
+  if (job.name === "scan-expiring-tokens" || (job.data as any)?.type === "scan-expiring-tokens") {
     const scannedCount = await scanAndEnqueueExpiringTokens();
     return { success: true, scannedCount };
   }

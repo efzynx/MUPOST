@@ -34,9 +34,7 @@ export function ThreadsPreview({
           {/* Header */}
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-1.5 min-w-0">
-              <span className="font-semibold text-xs text-white truncate">
-                {accountName}
-              </span>
+              <span className="font-semibold text-xs text-white truncate">{accountName}</span>
               <ThreadsLogo className="w-3 h-3 text-zinc-400 shrink-0" />
               <span className="text-[11px] text-zinc-500 shrink-0">• 1 mnt</span>
             </div>
@@ -56,11 +54,7 @@ export function ThreadsPreview({
           {firstMedia && (
             <div className="mt-3 rounded-xl overflow-hidden border border-zinc-800/80 bg-zinc-950 max-h-[320px]">
               {isVideo ? (
-                <video
-                  src={firstMedia}
-                  controls
-                  className="w-full max-h-[320px] object-contain"
-                />
+                <video src={firstMedia} controls className="w-full max-h-[320px] object-contain" />
               ) : (
                 <img
                   src={firstMedia}

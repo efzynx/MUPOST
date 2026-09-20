@@ -129,9 +129,7 @@ export default function CsvImportPage() {
       setSummary(json.data);
     } catch (err: unknown) {
       setErrorMessage(
-        err instanceof Error
-          ? err.message
-          : "Terjadi kesalahan jaringan saat mengunggah file."
+        err instanceof Error ? err.message : "Terjadi kesalahan jaringan saat mengunggah file."
       );
     } finally {
       setIsUploading(false);
@@ -151,9 +149,7 @@ export default function CsvImportPage() {
             <ArrowLeft className="w-4 h-4" />
           </Link>
           <div>
-            <h1 className="text-xl font-bold tracking-tight text-zinc-100">
-              Import Post via CSV
-            </h1>
+            <h1 className="text-xl font-bold tracking-tight text-zinc-100">Import Post via CSV</h1>
             <p className="text-xs text-zinc-400 mt-0.5">
               Jadwalkan atau publikasikan puluhan postingan sekaligus dari template spreadsheet CSV.
             </p>
@@ -209,10 +205,7 @@ export default function CsvImportPage() {
                   </div>
                 </div>
 
-                <Badge
-                  variant={summary.createdCount > 0 ? "published" : "failed"}
-                  className="h-6"
-                >
+                <Badge variant={summary.createdCount > 0 ? "published" : "failed"} className="h-6">
                   {summary.createdCount > 0 ? "Selesai Diproses" : "Perlu Perbaikan"}
                 </Badge>
               </div>
@@ -223,9 +216,7 @@ export default function CsvImportPage() {
                   <span className="text-[11px] font-medium text-emerald-400/90 uppercase tracking-wider">
                     Post Berhasil Dibuat
                   </span>
-                  <p className="text-2xl font-bold text-zinc-100 mt-1">
-                    {summary.createdCount}
-                  </p>
+                  <p className="text-2xl font-bold text-zinc-100 mt-1">{summary.createdCount}</p>
                   <p className="text-[10px] text-zinc-500 mt-0.5">Siap di antrean posting</p>
                 </div>
 
@@ -233,9 +224,7 @@ export default function CsvImportPage() {
                   <span className="text-[11px] font-medium text-amber-400/90 uppercase tracking-wider">
                     Baris Gagal / Dilewati
                   </span>
-                  <p className="text-2xl font-bold text-zinc-100 mt-1">
-                    {summary.skippedCount}
-                  </p>
+                  <p className="text-2xl font-bold text-zinc-100 mt-1">{summary.skippedCount}</p>
                   <p className="text-[10px] text-zinc-500 mt-0.5">Validasi format tidak sesuai</p>
                 </div>
 
@@ -243,9 +232,7 @@ export default function CsvImportPage() {
                   <span className="text-[11px] font-medium text-zinc-400 uppercase tracking-wider">
                     Total Baris Data
                   </span>
-                  <p className="text-2xl font-bold text-zinc-100 mt-1">
-                    {summary.totalRows}
-                  </p>
+                  <p className="text-2xl font-bold text-zinc-100 mt-1">{summary.totalRows}</p>
                   <p className="text-[10px] text-zinc-500 mt-0.5">Baris terbaca dari file</p>
                 </div>
               </div>
@@ -284,12 +271,8 @@ export default function CsvImportPage() {
                             <td className="px-4 py-3 font-mono text-zinc-300 font-semibold">
                               #{err.rowNumber}
                             </td>
-                            <td className="px-4 py-3 font-medium text-amber-400">
-                              {err.column}
-                            </td>
-                            <td className="px-4 py-3 text-zinc-400">
-                              {err.description}
-                            </td>
+                            <td className="px-4 py-3 font-medium text-amber-400">{err.column}</td>
+                            <td className="px-4 py-3 text-zinc-400">{err.description}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -370,9 +353,7 @@ export default function CsvImportPage() {
                     <FileSpreadsheet className="w-5 h-5" />
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-zinc-200">
-                      {file.name}
-                    </p>
+                    <p className="text-xs font-medium text-zinc-200">{file.name}</p>
                     <p className="text-[11px] text-zinc-500">
                       {(file.size / 1024).toFixed(1)} KB • Siap diproses
                     </p>
@@ -402,25 +383,45 @@ export default function CsvImportPage() {
                 <li className="flex items-start gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shrink-0 mt-1.5" />
                   <div>
-                    <code className="text-zinc-200 font-semibold font-mono bg-zinc-900 px-1 py-0.5 rounded border border-zinc-800">platform</code>: Nilai platform tujuan (pilihan: <code className="text-cyan-300">facebook</code>, <code className="text-cyan-300">instagram</code>, <code className="text-cyan-300">tiktok</code>, atau <code className="text-cyan-300">threads</code>).
+                    <code className="text-zinc-200 font-semibold font-mono bg-zinc-900 px-1 py-0.5 rounded border border-zinc-800">
+                      platform
+                    </code>
+                    : Nilai platform tujuan (pilihan:{" "}
+                    <code className="text-cyan-300">facebook</code>,{" "}
+                    <code className="text-cyan-300">instagram</code>,{" "}
+                    <code className="text-cyan-300">tiktok</code>, atau{" "}
+                    <code className="text-cyan-300">threads</code>).
                   </div>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shrink-0 mt-1.5" />
                   <div>
-                    <code className="text-zinc-200 font-semibold font-mono bg-zinc-900 px-1 py-0.5 rounded border border-zinc-800">text_content</code>: Isi konten teks postingan (maksimal 2.000 karakter).
+                    <code className="text-zinc-200 font-semibold font-mono bg-zinc-900 px-1 py-0.5 rounded border border-zinc-800">
+                      text_content
+                    </code>
+                    : Isi konten teks postingan (maksimal 2.000 karakter).
                   </div>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shrink-0 mt-1.5" />
                   <div>
-                    <code className="text-zinc-200 font-semibold font-mono bg-zinc-900 px-1 py-0.5 rounded border border-zinc-800">scheduled_at</code>: Waktu tayang format ISO 8601 di masa depan (contoh: <code className="text-zinc-300">2026-10-15T14:30:00Z</code>). Kosongkan jika ingin disimpan sebagai Draft.
+                    <code className="text-zinc-200 font-semibold font-mono bg-zinc-900 px-1 py-0.5 rounded border border-zinc-800">
+                      scheduled_at
+                    </code>
+                    : Waktu tayang format ISO 8601 di masa depan (contoh:{" "}
+                    <code className="text-zinc-300">2026-10-15T14:30:00Z</code>). Kosongkan jika
+                    ingin disimpan sebagai Draft.
                   </div>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shrink-0 mt-1.5" />
                   <div>
-                    <code className="text-zinc-200 font-semibold font-mono bg-zinc-900 px-1 py-0.5 rounded border border-zinc-800">media_url</code>: URL berkas media gambar/video publik (opsional, diawali <code className="text-zinc-300">http://</code> atau <code className="text-zinc-300">https://</code>).
+                    <code className="text-zinc-200 font-semibold font-mono bg-zinc-900 px-1 py-0.5 rounded border border-zinc-800">
+                      media_url
+                    </code>
+                    : URL berkas media gambar/video publik (opsional, diawali{" "}
+                    <code className="text-zinc-300">http://</code> atau{" "}
+                    <code className="text-zinc-300">https://</code>).
                   </div>
                 </li>
               </ul>

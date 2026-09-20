@@ -25,18 +25,18 @@ Platform manajemen dan penjadwalan postingan multi-platform. Buat, jadwalkan, da
 
 ## Fitur Utama
 
-| Fitur | Keterangan |
-|---|---|
-| **Multi-platform** | Publikasi ke Facebook Page, Instagram, TikTok, dan Threads dari satu tempat |
-| **Penjadwalan otomatis** | Jadwalkan post hingga 365 hari ke depan dengan toleransi eksekusi ≤ 60 detik |
-| **Publikasi paralel** | Semua platform tujuan diproses secara bersamaan via BullMQ Worker |
-| **Retry otomatis** | Maksimal 3 percobaan ulang dengan exponential backoff (1, 2, 4 menit) |
-| **Import CSV massal** | Upload hingga 500 baris sekaligus, laporan error per baris |
-| **Preview real-time** | Tampilan pratinjau posting sesuai tata letak setiap platform |
-| **Refresh token otomatis** | Scanner token kedaluwarsa berjalan setiap 1 jam via BullMQ |
-| **PWA & mode offline** | Dapat diinstal sebagai aplikasi; data ter-cache tersedia saat offline |
-| **Keamanan** | CSRF protection (double-submit cookie), JWT session, enkripsi token AES-256-GCM, rate limiting login |
-| **Upload media** | Gambar (JPEG/PNG/GIF, maks 8 MB) dan video (MP4/MOV, maks 512 MB) ke S3/MinIO |
+| Fitur                      | Keterangan                                                                                           |
+| -------------------------- | ---------------------------------------------------------------------------------------------------- |
+| **Multi-platform**         | Publikasi ke Facebook Page, Instagram, TikTok, dan Threads dari satu tempat                          |
+| **Penjadwalan otomatis**   | Jadwalkan post hingga 365 hari ke depan dengan toleransi eksekusi ≤ 60 detik                         |
+| **Publikasi paralel**      | Semua platform tujuan diproses secara bersamaan via BullMQ Worker                                    |
+| **Retry otomatis**         | Maksimal 3 percobaan ulang dengan exponential backoff (1, 2, 4 menit)                                |
+| **Import CSV massal**      | Upload hingga 500 baris sekaligus, laporan error per baris                                           |
+| **Preview real-time**      | Tampilan pratinjau posting sesuai tata letak setiap platform                                         |
+| **Refresh token otomatis** | Scanner token kedaluwarsa berjalan setiap 1 jam via BullMQ                                           |
+| **PWA & mode offline**     | Dapat diinstal sebagai aplikasi; data ter-cache tersedia saat offline                                |
+| **Keamanan**               | CSRF protection (double-submit cookie), JWT session, enkripsi token AES-256-GCM, rate limiting login |
+| **Upload media**           | Gambar (JPEG/PNG/GIF, maks 8 MB) dan video (MP4/MOV, maks 512 MB) ke S3/MinIO                        |
 
 ---
 
@@ -60,6 +60,7 @@ Platform manajemen dan penjadwalan postingan multi-platform. Buat, jadwalkan, da
 ```
 
 **Stack teknologi:**
+
 - **Framework:** Next.js 14 (App Router, TypeScript)
 - **Database:** PostgreSQL + Drizzle ORM
 - **Queue:** BullMQ + Redis (ioredis)
@@ -75,14 +76,14 @@ Platform manajemen dan penjadwalan postingan multi-platform. Buat, jadwalkan, da
 
 Pastikan semua perangkat lunak berikut sudah terpasang sebelum memulai:
 
-| Perangkat Lunak | Versi Minimum | Keterangan |
-|---|---|---|
-| **Node.js** | 20.x LTS | Versi 22+ juga didukung |
-| **npm** | 10.x | Atau package manager lain |
-| **PostgreSQL** | 15+ | Database utama |
-| **Redis** | 7+ | Antrian BullMQ & rate limiting |
-| **MinIO / S3** | — | Object storage untuk media (opsional untuk development) |
-| **Docker** | 24+ | Opsional, untuk menjalankan dependensi via container |
+| Perangkat Lunak | Versi Minimum | Keterangan                                              |
+| --------------- | ------------- | ------------------------------------------------------- |
+| **Node.js**     | 20.x LTS      | Versi 22+ juga didukung                                 |
+| **npm**         | 10.x          | Atau package manager lain                               |
+| **PostgreSQL**  | 15+           | Database utama                                          |
+| **Redis**       | 7+            | Antrian BullMQ & rate limiting                          |
+| **MinIO / S3**  | —             | Object storage untuk media (opsional untuk development) |
+| **Docker**      | 24+           | Opsional, untuk menjalankan dependensi via container    |
 
 ---
 
@@ -277,6 +278,11 @@ npm run dev
 npm run worker
 ```
 
+Worker ini menjalankan dua proses sekaligus:
+
+- `publish-worker` — memproses job publikasi dari antrian `publish-queue`
+- `token-refresh-worker` — memperbarui token platform yang akan kedaluwarsa (scan tiap 1 jam)
+
 > **Penting:** Worker **tidak boleh** dijalankan di dalam proses Next.js. Selalu jalankan sebagai proses Node.js terpisah.
 
 ---
@@ -303,10 +309,10 @@ npm run worker:refresh
 
 ### Konfigurasi Antrian
 
-| Antrian | Fungsi | Retry | Backoff |
-|---|---|---|---|
-| `publish-queue` | Publikasi post ke platform | 3x | Exponential: 1, 2, 4 menit |
-| `token-refresh-queue` | Refresh token OAuth | 3x | Fixed: 5 menit |
+| Antrian               | Fungsi                     | Retry | Backoff                    |
+| --------------------- | -------------------------- | ----- | -------------------------- |
+| `publish-queue`       | Publikasi post ke platform | 3x    | Exponential: 1, 2, 4 menit |
+| `token-refresh-queue` | Refresh token OAuth        | 3x    | Fixed: 5 menit             |
 
 ---
 
@@ -508,12 +514,12 @@ mupost/
 2. Unduh **Template CSV** untuk mengetahui format kolom yang diperlukan
 3. Isi template dengan kolom berikut:
 
-| Kolom | Wajib | Format | Keterangan |
-|---|---|---|---|
-| `platform` | Ya | `facebook`, `instagram`, `tiktok` | Platform tujuan |
-| `scheduled_at` | Ya | ISO 8601 (`2026-12-01T10:00:00Z`) | Waktu publish (harus masa depan) |
-| `text_content` | Ya | Teks, maks 2.000 karakter | Konten postingan |
-| `media_url` | Tidak | URL http/https | URL gambar atau video |
+| Kolom          | Wajib | Format                            | Keterangan                       |
+| -------------- | ----- | --------------------------------- | -------------------------------- |
+| `platform`     | Ya    | `facebook`, `instagram`, `tiktok` | Platform tujuan                  |
+| `scheduled_at` | Ya    | ISO 8601 (`2026-12-01T10:00:00Z`) | Waktu publish (harus masa depan) |
+| `text_content` | Ya    | Teks, maks 2.000 karakter         | Konten postingan                 |
+| `media_url`    | Tidak | URL http/https                    | URL gambar atau video            |
 
 4. Upload file CSV (maks 500 baris, maks 5 MB)
 5. Sistem memproses baris valid, menampilkan laporan error per baris untuk yang tidak valid
@@ -540,12 +546,12 @@ Proyek ini menggunakan **GitHub Actions** untuk otomatisasi kualitas kode. Pipel
 
 ### Tahapan Pipeline
 
-| Tahap | Perintah | Keterangan |
-|---|---|---|
-| **Lint** | `npm run lint` | ESLint — deteksi masalah kode |
+| Tahap            | Perintah               | Keterangan                           |
+| ---------------- | ---------------------- | ------------------------------------ |
+| **Lint**         | `npm run lint`         | ESLint — deteksi masalah kode        |
 | **Format check** | `npm run format:check` | Prettier — verifikasi gaya penulisan |
-| **Build** | `npm run build` | Next.js build + TypeScript typecheck |
-| **Test** | `npm test` | Semua unit & property tests (Jest) |
+| **Build**        | `npm run build`        | Next.js build + TypeScript typecheck |
+| **Test**         | `npm test`             | Semua unit & property tests (Jest)   |
 
 ### Konfigurasi
 

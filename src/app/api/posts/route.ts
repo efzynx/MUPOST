@@ -32,9 +32,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const platformParam = searchParams.get("platform");
   const pageParam = searchParams.get("page");
 
-  const status = statusParam
-    ? (statusParam.split(",").filter(Boolean) as PostStatus[])
-    : undefined;
+  const status = statusParam ? (statusParam.split(",").filter(Boolean) as PostStatus[]) : undefined;
   const platform = platformParam
     ? (platformParam.split(",").filter(Boolean) as PlatformType[])
     : undefined;
