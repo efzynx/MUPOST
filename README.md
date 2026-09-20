@@ -18,6 +18,7 @@ Platform manajemen dan penjadwalan postingan multi-platform. Buat, jadwalkan, da
 - [Perintah Tersedia](#perintah-tersedia)
 - [Struktur Proyek](#struktur-proyek)
 - [Alur Kerja Platform](#alur-kerja-platform)
+- [CI/CD Pipeline](#cicd-pipeline)
 - [Panduan Deployment](#panduan-deployment)
 
 ---
@@ -246,15 +247,32 @@ Mupost memerlukan **dua proses** yang berjalan secara bersamaan:
 1. **Next.js Server** — melayani UI dan API HTTP
 2. **BullMQ Worker** — memproses antrian publikasi di background
 
-### Terminal 1: Next.js Development Server
+### Cara Cepat: Satu Perintah untuk Semua Proses (Direkomendasikan)
+
+```bash
+npm run dev:all
+```
+
+Perintah ini menjalankan skrip orkestrasi `scripts/dev-all.sh` yang:
+
+- Memulai **Next.js dev server** dan **BullMQ worker** secara simultan
+- Menambahkan prefix warna (`[next]` / `[worker]`) pada setiap baris log untuk membedakan output
+- Menangani **graceful termination**: menekan `Ctrl+C` akan menghentikan semua proses anak dengan rapi (SIGTERM dulu, lalu SIGKILL setelah 5 detik jika belum berhenti)
+- Mendeteksi jika salah satu proses keluar secara tidak terduga dan menghentikan proses lainnya otomatis
+
+Aplikasi akan tersedia di [http://localhost:3000](http://localhost:3000).
+
+### Alternatif: Menjalankan Proses Secara Terpisah
+
+Jika lebih suka kontrol manual, buka dua terminal:
+
+**Terminal 1: Next.js Development Server**
 
 ```bash
 npm run dev
 ```
 
-Aplikasi akan tersedia di [http://localhost:3000](http://localhost:3000).
-
-### Terminal 2: BullMQ Worker Process
+**Terminal 2: BullMQ Worker Process**
 
 ```bash
 npm run worker
@@ -369,7 +387,8 @@ Target skor: `Performance ≥ 90` dan `PWA = pass`.
 
 ```bash
 # ── DEVELOPMENT ─────────────────────────────────────────────────────────────
-npm run dev               # Next.js dev server (http://localhost:3000)
+npm run dev:all          # Semua proses sekaligus: Next.js + Worker (DIREKOMENDASIKAN)
+npm run dev               # Next.js dev server saja (http://localhost:3000)
 npm run build             # Build production
 npm run start             # Jalankan production build
 npm run lint              # ESLint
@@ -513,6 +532,43 @@ DRAFT → SCHEDULED → QUEUED → PUBLISHED
                            PARTIAL (sebagian platform berhasil)
                               ↓
                             FAILED (semua platform gagal, bisa retry)
+```
+
+---
+
+## CI/CD Pipeline
+
+Proyek ini menggunakan **GitHub Actions** untuk otomatisasi kualitas kode. Pipeline berjalan otomatis pada setiap **Pull Request** maupun **push** ke branch `dev` dan `main`.
+
+### File Workflow
+
+`.github/workflows/ci.yml`
+
+### Tahapan Pipeline
+
+| Tahap            | Perintah               | Keterangan                           |
+| ---------------- | ---------------------- | ------------------------------------ |
+| **Lint**         | `npm run lint`         | ESLint — deteksi masalah kode        |
+| **Format check** | `npm run format:check` | Prettier — verifikasi gaya penulisan |
+| **Build**        | `npm run build`        | Next.js build + TypeScript typecheck |
+| **Test**         | `npm test`             | Semua unit & property tests (Jest)   |
+
+### Konfigurasi
+
+- **Trigger:** `pull_request` dan `push` ke `main` / `dev`
+- **Runner:** `ubuntu-latest`
+- **Node.js:** versi 20 LTS dengan caching npm
+- **Concurrency:** satu run per branch — run lama dibatalkan otomatis saat ada push baru (`cancel-in-progress: true`)
+
+### Menjalankan Pipeline Secara Lokal
+
+Sebelum push, verifikasi semua langkah pipeline berjalan bersih:
+
+```bash
+npm run lint
+npm run format:check
+npm run build
+npm test
 ```
 
 ---

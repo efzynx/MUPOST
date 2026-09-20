@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main, dev]
+  push:
+    branches: [main, dev]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: Lint · Format · Build · Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Format check
+        run: npm run format:check
+
+      - name: Build (typecheck)
+        run: npm run build
+        env:
+          # Required env vars for Next.js build (use dummy values for CI)
+          NODE_ENV: production
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/mupost
+          REDIS_URL: redis://localhost:6379
+          TOKEN_ENCRYPTION_KEY: 0000000000000000000000000000000000000000000000000000000000000000
+          NEXTAUTH_SECRET: ci-secret-placeholder-at-least-32-chars
+          META_APP_ID: ci_placeholder
+          META_APP_SECRET: ci_placeholder
+          TIKTOK_CLIENT_KEY: ci_placeholder
+          TIKTOK_CLIENT_SECRET: ci_placeholder
+          S3_BUCKET: mupost-media
+          S3_ENDPOINT: http://localhost:9000
+          S3_ACCESS_KEY: minioadmin
+          S3_SECRET_KEY: minioadmin
+          S3_REGION: us-east-1
+          NEXT_PUBLIC_APP_URL: http://localhost:3000
+
+      - name: Test (unit & property)
+        run: npm test -- --forceExit --passWithNoTests
+        env:
+          NODE_ENV: test
