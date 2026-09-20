@@ -1,9 +1,5 @@
 import { randomUUID } from "crypto";
-import {
-  S3Client,
-  PutObjectCommand,
-  GetObjectCommand,
-} from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import { Upload } from "@aws-sdk/lib-storage";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { env } from "@/lib/env";
@@ -18,16 +14,9 @@ const MAX_VIDEO_BYTES = 536_870_912; // 512 MB
 /** Threshold di atas mana kita pakai multipart upload (5 MB). */
 const MULTIPART_THRESHOLD = 5 * 1024 * 1024;
 
-const VALID_IMAGE_MIMES = new Set([
-  "image/jpeg",
-  "image/png",
-  "image/gif",
-]);
+const VALID_IMAGE_MIMES = new Set(["image/jpeg", "image/png", "image/gif"]);
 
-const VALID_VIDEO_MIMES = new Set([
-  "video/mp4",
-  "video/quicktime",
-]);
+const VALID_VIDEO_MIMES = new Set(["video/mp4", "video/quicktime"]);
 
 // Magic-byte signatures yang kita kenali.
 // Urutan penting: pemeriksaan dilakukan sekuensial, hit pertama menang.
@@ -321,9 +310,10 @@ export async function uploadMedia(
   // serta menghindari Mixed Content error (HTTPS ngrok memanggil HTTP localhost)
   const endpoint = env.S3_ENDPOINT.replace(/\/$/, "");
   const isLocalEndpoint = endpoint.includes("localhost") || endpoint.includes("127.0.0.1");
-  const baseDomain = isLocalEndpoint && env.NEXT_PUBLIC_APP_URL
-    ? env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "")
-    : endpoint;
+  const baseDomain =
+    isLocalEndpoint && env.NEXT_PUBLIC_APP_URL
+      ? env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "")
+      : endpoint;
   const publicUrl = `${baseDomain}/${bucket}/${key}`;
 
   return {
@@ -340,10 +330,7 @@ export async function uploadMedia(
  * @param key - S3 object key
  * @param expiresIn - durasi validitas URL dalam detik (default 3600 = 1 jam)
  */
-export async function generatePresignedUrl(
-  key: string,
-  expiresIn: number = 3600
-): Promise<string> {
+export async function generatePresignedUrl(key: string, expiresIn: number = 3600): Promise<string> {
   const client = getS3Client();
   const bucket = env.S3_BUCKET;
 
@@ -359,9 +346,4 @@ export async function generatePresignedUrl(
 // Ekspor konstanta untuk testing
 // ==========================================
 
-export {
-  MAX_IMAGE_BYTES,
-  MAX_VIDEO_BYTES,
-  VALID_IMAGE_MIMES,
-  VALID_VIDEO_MIMES,
-};
+export { MAX_IMAGE_BYTES, MAX_VIDEO_BYTES, VALID_IMAGE_MIMES, VALID_VIDEO_MIMES };

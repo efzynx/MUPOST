@@ -47,18 +47,14 @@ export default function LoginPage() {
       });
 
       if (!response.ok) {
-        setErrorMessage(
-          response.data?.error?.message || "Email atau kata sandi tidak valid."
-        );
+        setErrorMessage(response.data?.error?.message || "Email atau kata sandi tidak valid.");
         setIsLoading(false);
         return;
       }
 
       router.push(response.data?.redirect || "/dashboard");
     } catch {
-      setErrorMessage(
-        "Gagal menghubungi server. Silakan periksa koneksi internet Anda."
-      );
+      setErrorMessage("Gagal menghubungi server. Silakan periksa koneksi internet Anda.");
       setIsLoading(false);
     }
   };
@@ -71,12 +67,8 @@ export default function LoginPage() {
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-zinc-900 border border-zinc-800 p-2.5 mb-3 shadow-lg shadow-black/40 select-none">
             <MupostLogo className="w-full h-full text-zinc-100" />
           </div>
-          <h1 className="text-xl font-semibold tracking-tight text-zinc-100">
-            Mupost
-          </h1>
-          <p className="text-xs text-zinc-400 mt-1">
-            Platform manajemen posting multi-platform
-          </p>
+          <h1 className="text-xl font-semibold tracking-tight text-zinc-100">Mupost</h1>
+          <p className="text-xs text-zinc-400 mt-1">Platform manajemen posting multi-platform</p>
         </div>
 
         {/* Auth Card */}
@@ -98,10 +90,7 @@ export default function LoginPage() {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label
-                  htmlFor="email"
-                  className="block text-xs font-medium text-zinc-300 mb-1.5"
-                >
+                <label htmlFor="email" className="block text-xs font-medium text-zinc-300 mb-1.5">
                   Alamat Email
                 </label>
                 <Input
@@ -117,10 +106,7 @@ export default function LoginPage() {
 
               <div>
                 <div className="flex justify-between items-center mb-1.5">
-                  <label
-                    htmlFor="password"
-                    className="block text-xs font-medium text-zinc-300"
-                  >
+                  <label htmlFor="password" className="block text-xs font-medium text-zinc-300">
                     Kata Sandi
                   </label>
                 </div>
@@ -142,21 +128,12 @@ export default function LoginPage() {
                     tabIndex={-1}
                     aria-label={showPassword ? "Sembunyikan kata sandi" : "Tampilkan kata sandi"}
                   >
-                    {showPassword ? (
-                      <EyeOff className="w-4 h-4" />
-                    ) : (
-                      <Eye className="w-4 h-4" />
-                    )}
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
               </div>
 
-              <Button
-                type="submit"
-                variant="primary"
-                className="w-full mt-2"
-                isLoading={isLoading}
-              >
+              <Button type="submit" variant="primary" className="w-full mt-2" isLoading={isLoading}>
                 Masuk
               </Button>
             </form>

@@ -92,7 +92,13 @@ const PLATFORM_OPTIONS: { value: PlatformFilter; label: string }[] = [
 ];
 
 function getStatusBadge(status: PostItem["status"]) {
-  const map: Record<PostItem["status"], { variant: "default" | "scheduled" | "published" | "failed" | "outline" | "secondary"; label: string }> = {
+  const map: Record<
+    PostItem["status"],
+    {
+      variant: "default" | "scheduled" | "published" | "failed" | "outline" | "secondary";
+      label: string;
+    }
+  > = {
     DRAFT: { variant: "default", label: "Draft" },
     SCHEDULED: { variant: "scheduled", label: "Terjadwal" },
     QUEUED: { variant: "outline", label: "Antrean" },
@@ -187,16 +193,12 @@ function PostsListContent() {
 
   // Filter toggles
   const toggleStatus = (s: StatusFilter) => {
-    setStatusFilters((prev) =>
-      prev.includes(s) ? prev.filter((v) => v !== s) : [...prev, s]
-    );
+    setStatusFilters((prev) => (prev.includes(s) ? prev.filter((v) => v !== s) : [...prev, s]));
     setPage(1);
   };
 
   const togglePlatform = (p: PlatformFilter) => {
-    setPlatformFilters((prev) =>
-      prev.includes(p) ? prev.filter((v) => v !== p) : [...prev, p]
-    );
+    setPlatformFilters((prev) => (prev.includes(p) ? prev.filter((v) => v !== p) : [...prev, p]));
     setPage(1);
   };
 
@@ -393,7 +395,12 @@ function PostsListContent() {
               : "Buat post pertama Anda untuk mulai mempublikasikan konten."}
           </p>
           {!hasActiveFilters && (
-            <Button variant="primary" size="sm" onClick={() => router.push("/posts/new")} className="mt-2">
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => router.push("/posts/new")}
+              className="mt-2"
+            >
               <Plus className="w-3.5 h-3.5" />
               Buat Post Pertama
             </Button>
@@ -405,9 +412,7 @@ function PostsListContent() {
             <Card
               key={post.id}
               className={`border-zinc-800/80 bg-zinc-900/40 rounded-xl transition-all group ${
-                isOnline
-                  ? "hover:border-zinc-700/80 cursor-pointer"
-                  : "cursor-default opacity-90"
+                isOnline ? "hover:border-zinc-700/80 cursor-pointer" : "cursor-default opacity-90"
               }`}
               title={!isOnline ? OFFLINE_TOOLTIP : undefined}
               onClick={() => {
@@ -440,7 +445,10 @@ function PostsListContent() {
                       {/* Platform icons */}
                       <div className="flex items-center gap-1">
                         {Array.from(new Set(post.targets.map((t) => t.platform))).map((p) => (
-                          <span key={p} className="opacity-60 group-hover:opacity-100 transition-opacity">
+                          <span
+                            key={p}
+                            className="opacity-60 group-hover:opacity-100 transition-opacity"
+                          >
                             {getPlatformIcon(p, "w-3.5 h-3.5")}
                           </span>
                         ))}

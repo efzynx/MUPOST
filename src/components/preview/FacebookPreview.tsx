@@ -55,11 +55,7 @@ export function FacebookPreview({
       {firstMedia && (
         <div className="w-full bg-slate-950 flex items-center justify-center overflow-hidden max-h-[420px]">
           {isVideo ? (
-            <video
-              src={firstMedia}
-              controls
-              className="w-full max-h-[420px] object-contain"
-            />
+            <video src={firstMedia} controls className="w-full max-h-[420px] object-contain" />
           ) : (
             <img
               src={firstMedia}

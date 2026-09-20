@@ -130,11 +130,7 @@ export class CsvProcessorService {
    */
   async parseAndValidate(csvContent: string): Promise<CsvParseResult> {
     if (!csvContent || csvContent.trim().length === 0) {
-      throw new CsvProcessorError(
-        "EMPTY_FILE",
-        400,
-        "File CSV kosong atau tidak memiliki data."
-      );
+      throw new CsvProcessorError("EMPTY_FILE", 400, "File CSV kosong atau tidak memiliki data.");
     }
 
     const parsed = Papa.parse<Record<string, string>>(csvContent, {
@@ -190,7 +186,8 @@ export class CsvProcessorService {
           rowErrors.push({
             rowNumber,
             column: "scheduled_at",
-            description: "Format waktu jadwal tidak valid. Gunakan format ISO 8601 (contoh: 2026-10-01T10:00:00Z).",
+            description:
+              "Format waktu jadwal tidak valid. Gunakan format ISO 8601 (contoh: 2026-10-01T10:00:00Z).",
           });
         }
       } else {
@@ -298,10 +295,7 @@ export class CsvProcessorService {
   /**
    * Mengonversi baris-baris CSV yang valid menjadi postingan di database via PostManager.
    */
-  async createPostsFromRows(
-    validRows: CsvRow[],
-    userId: string
-  ): Promise<BulkCreateResult> {
+  async createPostsFromRows(validRows: CsvRow[], userId: string): Promise<BulkCreateResult> {
     const createdPosts: PostWithTargets[] = [];
     const errors: CsvValidationError[] = [];
     let skippedCount = 0;
@@ -313,12 +307,7 @@ export class CsvProcessorService {
         platform: connectedAccounts.platform,
       })
       .from(connectedAccounts)
-      .where(
-        and(
-          eq(connectedAccounts.userId, userId),
-          eq(connectedAccounts.status, "ACTIVE")
-        )
-      );
+      .where(and(eq(connectedAccounts.userId, userId), eq(connectedAccounts.status, "ACTIVE")));
 
     const platformAccountMap: Partial<Record<PlatformType, string>> = {};
     for (const acc of userAccounts) {

@@ -1,10 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { authService } from "@/lib/services/auth-service";
 import { SESSION_COOKIE_NAME } from "@/lib/cookies";
-import {
-  csvProcessor,
-  CsvProcessorError,
-} from "@/lib/services/csv-processor";
+import { csvProcessor, CsvProcessorError } from "@/lib/services/csv-processor";
 
 /**
  * POST /api/csv/upload
@@ -86,10 +83,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     // 5. Buat postingan untuk baris-baris yang valid (partial success didukung)
-    const bulkResult = await csvProcessor.createPostsFromRows(
-      parseResult.validRows,
-      user.id
-    );
+    const bulkResult = await csvProcessor.createPostsFromRows(parseResult.validRows, user.id);
 
     const allErrors = [...parseResult.invalidRows, ...bulkResult.errors];
 

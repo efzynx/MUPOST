@@ -50,7 +50,8 @@ export function OfflineBanner() {
     >
       <WifiOff className="w-4 h-4 shrink-0 animate-pulse" />
       <span>
-        Anda sedang dalam mode offline. Menampilkan data dari cache. Fitur pembuatan, pengeditan, dan publikasi dinonaktifkan.
+        Anda sedang dalam mode offline. Menampilkan data dari cache. Fitur pembuatan, pengeditan,
+        dan publikasi dinonaktifkan.
       </span>
     </div>
   );

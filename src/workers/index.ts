@@ -1,8 +1,5 @@
 import { createPublishWorker } from "./publish-worker";
-import {
-  createTokenRefreshWorker,
-  setupTokenRefreshScanner,
-} from "./token-refresh-worker";
+import { createTokenRefreshWorker, setupTokenRefreshScanner } from "./token-refresh-worker";
 
 /**
  * Entry point tunggal untuk menjalankan seluruh worker background Mupost:
@@ -39,10 +36,7 @@ export async function startWorkers() {
     // eslint-disable-next-line no-console
     console.log(`\n[Worker] Menerima sinyal ${signal}, melakukan graceful shutdown...`);
     try {
-      await Promise.allSettled([
-        publishWorker.close(),
-        tokenRefreshWorker.close(),
-      ]);
+      await Promise.allSettled([publishWorker.close(), tokenRefreshWorker.close()]);
       // eslint-disable-next-line no-console
       console.log("[Worker] Seluruh worker telah dihentikan secara aman.");
       process.exit(0);

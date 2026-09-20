@@ -35,9 +35,7 @@ export function TikTokPreview({
             <div className="w-14 h-14 rounded-full bg-rose-500/10 flex items-center justify-center text-rose-500 mb-3 border border-rose-500/20">
               <VideoIcon className="w-7 h-7" />
             </div>
-            <p className="text-sm font-semibold text-rose-400">
-              TikTok memerlukan video
-            </p>
+            <p className="text-sm font-semibold text-rose-400">TikTok memerlukan video</p>
             <p className="text-xs text-slate-400 mt-1 leading-relaxed">
               Upload file MP4/MOV untuk simulasi vertical feed
             </p>

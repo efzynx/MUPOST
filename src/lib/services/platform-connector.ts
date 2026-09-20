@@ -120,7 +120,8 @@ export class PlatformConnectorService {
     const params = new URLSearchParams({
       client_id: env.META_APP_ID,
       redirect_uri: callbackUrl,
-      scope: "pages_show_list,pages_manage_posts,pages_read_engagement,instagram_basic,instagram_content_publish,business_management",
+      scope:
+        "pages_show_list,pages_manage_posts,pages_read_engagement,instagram_basic,instagram_content_publish,business_management",
       state,
       response_type: "code",
       auth_type: "rerequest",
@@ -159,7 +160,8 @@ export class PlatformConnectorService {
 
     const { userId } = stateData;
     const baseUrl = env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    const callbackUrl = redirectUri || stateData.redirectUri || `${baseUrl}/api/connect/meta/callback`;
+    const callbackUrl =
+      redirectUri || stateData.redirectUri || `${baseUrl}/api/connect/meta/callback`;
 
     // 1. Tukar authorization code dengan access token via server-side request (timeout 30 detik)
     const tokenUrl = new URL("https://graph.facebook.com/v21.0/oauth/access_token");
@@ -784,7 +786,8 @@ export class PlatformConnectorService {
 
     const { userId } = stateData;
     const baseUrl = env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    const callbackUrl = redirectUri || stateData.redirectUri || `${baseUrl}/api/connect/tiktok/callback`;
+    const callbackUrl =
+      redirectUri || stateData.redirectUri || `${baseUrl}/api/connect/tiktok/callback`;
 
     // 1. Tukar code dengan access token via POST server-side ke TikTok (timeout 30 detik)
     const bodyParams = new URLSearchParams({
@@ -964,7 +967,8 @@ export class PlatformConnectorService {
   async getThreadsAuthUrl(userId: string, redirectUri?: string): Promise<string> {
     const redis = getRedisClient();
     const state = randomUUID();
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const baseUrl =
+      process.env.NEXT_PUBLIC_APP_URL || env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
     const callbackUrl = redirectUri || `${baseUrl}/api/connect/threads/callback`;
 
     const statePayload = JSON.stringify({
@@ -1019,10 +1023,13 @@ export class PlatformConnectorService {
     }
 
     const { userId } = stateData;
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    const callbackUrl = redirectUri || stateData.redirectUri || `${baseUrl}/api/connect/threads/callback`;
+    const baseUrl =
+      process.env.NEXT_PUBLIC_APP_URL || env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const callbackUrl =
+      redirectUri || stateData.redirectUri || `${baseUrl}/api/connect/threads/callback`;
     const threadsAppId = process.env.THREADS_APP_ID || env.THREADS_APP_ID || env.META_APP_ID;
-    const threadsAppSecret = process.env.THREADS_APP_SECRET || env.THREADS_APP_SECRET || env.META_APP_SECRET;
+    const threadsAppSecret =
+      process.env.THREADS_APP_SECRET || env.THREADS_APP_SECRET || env.META_APP_SECRET;
 
     // Bersihkan suffix '#_' jika ada
     const code = rawCode.replace(/#_$/, "");
@@ -1052,7 +1059,9 @@ export class PlatformConnectorService {
       const errMsg = isError ? err.message : String(err);
       if (
         isError &&
-        (err.name === "TimeoutError" || err.name === "AbortError" || errMsg.toLowerCase().includes("timeout"))
+        (err.name === "TimeoutError" ||
+          err.name === "AbortError" ||
+          errMsg.toLowerCase().includes("timeout"))
       ) {
         throw new PlatformError(
           "OAUTH_TIMEOUT",
@@ -1069,7 +1078,10 @@ export class PlatformConnectorService {
 
     const tokenJson = await tokenRes.json();
     if (!tokenRes.ok || tokenJson.error || !tokenJson.access_token) {
-      const errorMsg = tokenJson.error_message || tokenJson.error?.message || "Gagal menukar kode otorisasi Threads.";
+      const errorMsg =
+        tokenJson.error_message ||
+        tokenJson.error?.message ||
+        "Gagal menukar kode otorisasi Threads.";
       throw new PlatformError("OAUTH_EXCHANGE_FAILED", 400, errorMsg, tokenJson.error);
     }
 
