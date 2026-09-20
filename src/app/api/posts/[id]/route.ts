@@ -85,8 +85,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams): Prom
         body.scheduledAt === null
           ? null
           : body.scheduledAt
-          ? new Date(String(body.scheduledAt))
-          : undefined,
+            ? new Date(String(body.scheduledAt))
+            : undefined,
     });
 
     return NextResponse.json({ data: post }, { status: 200 });
@@ -108,10 +108,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams): Prom
 /**
  * DELETE /api/posts/[id]
  */
-export async function DELETE(
-  request: NextRequest,
-  { params }: RouteParams
-): Promise<NextResponse> {
+export async function DELETE(request: NextRequest, { params }: RouteParams): Promise<NextResponse> {
   const { id } = await params;
   const sessionCookie = request.cookies.get(SESSION_COOKIE_NAME)?.value;
   if (!sessionCookie) {

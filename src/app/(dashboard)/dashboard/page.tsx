@@ -79,7 +79,10 @@ interface DashboardData {
   recentPosts: PostItem[];
 }
 
-function getPlatformIcon(platform: "META_PAGE" | "INSTAGRAM" | "TIKTOK" | "THREADS", size = "w-4 h-4") {
+function getPlatformIcon(
+  platform: "META_PAGE" | "INSTAGRAM" | "TIKTOK" | "THREADS",
+  size = "w-4 h-4"
+) {
   switch (platform) {
     case "META_PAGE":
       return <FacebookLogo className={size} />;
@@ -97,7 +100,10 @@ function getPlatformIcon(platform: "META_PAGE" | "INSTAGRAM" | "TIKTOK" | "THREA
 function getStatusBadge(status: PostItem["status"]) {
   const map: Record<
     PostItem["status"],
-    { variant: "default" | "scheduled" | "published" | "failed" | "outline" | "secondary"; label: string }
+    {
+      variant: "default" | "scheduled" | "published" | "failed" | "outline" | "secondary";
+      label: string;
+    }
   > = {
     DRAFT: { variant: "default", label: "Draft" },
     SCHEDULED: { variant: "scheduled", label: "Terjadwal" },
@@ -179,7 +185,8 @@ export default function DashboardPage() {
             Ringkasan Dashboard
           </h1>
           <p className="text-xs text-zinc-400 mt-1">
-            Selamat datang kembali, <span className="text-zinc-200 font-medium">{user?.fullName}</span> ({user?.email})
+            Selamat datang kembali,{" "}
+            <span className="text-zinc-200 font-medium">{user?.fullName}</span> ({user?.email})
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -208,8 +215,12 @@ export default function DashboardPage() {
                     <PlusSquare className="w-4 h-4" />
                   </div>
                   <div>
-                    <CardTitle className="text-xs font-semibold text-zinc-200">Buat Post Baru</CardTitle>
-                    <CardDescription className="text-[11px] text-zinc-400 mt-0.5">Tulis & publikasikan</CardDescription>
+                    <CardTitle className="text-xs font-semibold text-zinc-200">
+                      Buat Post Baru
+                    </CardTitle>
+                    <CardDescription className="text-[11px] text-zinc-400 mt-0.5">
+                      Tulis & publikasikan
+                    </CardDescription>
                   </div>
                 </div>
                 <ArrowUpRight className="w-4 h-4 text-zinc-500 group-hover:text-zinc-200 transition-colors" />
@@ -227,8 +238,12 @@ export default function DashboardPage() {
                     <UploadCloud className="w-4 h-4" />
                   </div>
                   <div>
-                    <CardTitle className="text-xs font-semibold text-zinc-200">Import CSV</CardTitle>
-                    <CardDescription className="text-[11px] text-zinc-400 mt-0.5">Jadwalkan massal</CardDescription>
+                    <CardTitle className="text-xs font-semibold text-zinc-200">
+                      Import CSV
+                    </CardTitle>
+                    <CardDescription className="text-[11px] text-zinc-400 mt-0.5">
+                      Jadwalkan massal
+                    </CardDescription>
                   </div>
                 </div>
                 <ArrowUpRight className="w-4 h-4 text-zinc-500 group-hover:text-zinc-200 transition-colors" />
@@ -246,8 +261,12 @@ export default function DashboardPage() {
                     <Share2 className="w-4 h-4" />
                   </div>
                   <div>
-                    <CardTitle className="text-xs font-semibold text-zinc-200">Kelola Akun</CardTitle>
-                    <CardDescription className="text-[11px] text-zinc-400 mt-0.5">Koneksi & izin OAuth</CardDescription>
+                    <CardTitle className="text-xs font-semibold text-zinc-200">
+                      Kelola Akun
+                    </CardTitle>
+                    <CardDescription className="text-[11px] text-zinc-400 mt-0.5">
+                      Koneksi & izin OAuth
+                    </CardDescription>
                   </div>
                 </div>
                 <ArrowUpRight className="w-4 h-4 text-zinc-500 group-hover:text-zinc-200 transition-colors" />
@@ -267,9 +286,7 @@ export default function DashboardPage() {
                 <span className="text-xs text-zinc-400 font-medium">Total Post</span>
                 <Layers className="w-4 h-4 text-zinc-500" />
               </div>
-              <div className="mt-2 text-2xl font-bold text-zinc-100">
-                {stats?.totalPosts ?? 0}
-              </div>
+              <div className="mt-2 text-2xl font-bold text-zinc-100">{stats?.totalPosts ?? 0}</div>
               <p className="text-[10px] text-zinc-500 mt-1">Seluruh riwayat posting</p>
             </Card>
 
@@ -367,7 +384,11 @@ export default function DashboardPage() {
                         <div className="shrink-0 flex items-center gap-2">
                           {getStatusBadge(post.status)}
                           <Link href={`/posts`}>
-                            <Button variant="ghost" size="sm" className="h-7 px-2 text-zinc-400 hover:text-zinc-200">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2 text-zinc-400 hover:text-zinc-200"
+                            >
                               <ArrowUpRight className="w-3.5 h-3.5" />
                             </Button>
                           </Link>
@@ -490,7 +511,8 @@ export default function DashboardPage() {
             </div>
             <CardTitle className="text-base">Mulai dengan Menghubungkan Platform</CardTitle>
             <CardDescription className="text-xs">
-              Anda belum memiliki akun media sosial yang terhubung. Hubungkan akun Anda untuk mulai menerbitkan dan menjadwalkan postingan.
+              Anda belum memiliki akun media sosial yang terhubung. Hubungkan akun Anda untuk mulai
+              menerbitkan dan menjadwalkan postingan.
             </CardDescription>
           </CardHeader>
           <CardContent className="p-6 pt-0 space-y-4">
@@ -498,7 +520,9 @@ export default function DashboardPage() {
               <div className="p-3.5 rounded-lg bg-zinc-950/50 border border-zinc-800/80 flex items-start gap-3">
                 <div className="mt-0.5">{getPlatformIcon("META_PAGE", "w-5 h-5")}</div>
                 <div>
-                  <h4 className="text-xs font-semibold text-zinc-200">Meta (Facebook & Instagram)</h4>
+                  <h4 className="text-xs font-semibold text-zinc-200">
+                    Meta (Facebook & Instagram)
+                  </h4>
                   <p className="text-[11px] text-zinc-400 mt-0.5">
                     Hubungkan Facebook Page dan Instagram Business / Creator via Meta OAuth.
                   </p>

@@ -32,8 +32,8 @@ async function globalSetup(config: FullConfig) {
     if (!response) {
       console.warn(
         `\n⚠️  E2E: Server tidak tersedia di ${baseURL}.\n` +
-        `   Jalankan 'npm run dev' atau 'npm run start' terlebih dahulu.\n` +
-        `   E2E tests akan dilewati (pass-with-no-tests mode).\n`
+          `   Jalankan 'npm run dev' atau 'npm run start' terlebih dahulu.\n` +
+          `   E2E tests akan dilewati (pass-with-no-tests mode).\n`
       );
     } else {
       console.log(`✓ E2E: Server tersedia di ${baseURL}`);

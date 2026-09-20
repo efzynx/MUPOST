@@ -2,10 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { authService } from "@/lib/services/auth-service";
 import { SESSION_COOKIE_NAME } from "@/lib/cookies";
 import { postManager, PostManagerError } from "@/lib/services/post-manager";
-import {
-  previewEngine,
-  type PreviewResult,
-} from "@/lib/services/preview-engine";
+import { previewEngine, type PreviewResult } from "@/lib/services/preview-engine";
 
 interface RouteParams {
   params: Promise<{ id: string }> | { id: string };
@@ -17,10 +14,7 @@ interface RouteParams {
  * Mengambil post berdasarkan id, kemudian merender simulasi pratinjau
  * untuk semua platform target post tersebut.
  */
-export async function GET(
-  request: NextRequest,
-  { params }: RouteParams
-): Promise<NextResponse> {
+export async function GET(request: NextRequest, { params }: RouteParams): Promise<NextResponse> {
   const resolvedParams = await Promise.resolve(params);
   const id = resolvedParams.id;
 

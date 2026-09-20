@@ -17,9 +17,7 @@ export interface TokenRefreshScannerJobData {
   platform?: never;
 }
 
-export type TokenRefreshJobData =
-  | TokenRefreshAccountJobData
-  | TokenRefreshScannerJobData;
+export type TokenRefreshJobData = TokenRefreshAccountJobData | TokenRefreshScannerJobData;
 
 declare global {
   // eslint-disable-next-line no-var

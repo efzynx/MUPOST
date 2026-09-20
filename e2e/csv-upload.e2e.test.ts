@@ -37,7 +37,12 @@ test.describe("E2E 16.4: CSV Upload UI", () => {
             skippedCount: 0,
             totalRows: 3,
             createdPosts: [
-              { id: "csv-post-1", status: "SCHEDULED", scheduledAt: new Date().toISOString(), textContent: "Row 1" },
+              {
+                id: "csv-post-1",
+                status: "SCHEDULED",
+                scheduledAt: new Date().toISOString(),
+                textContent: "Row 1",
+              },
             ],
             errors: [],
           },
@@ -59,9 +64,7 @@ test.describe("E2E 16.4: CSV Upload UI", () => {
     await page.goto("/posts/import");
     await page.waitForLoadState("networkidle");
 
-    const uploadArea = page
-      .locator("input[type='file'], div[class*='border-dashed']")
-      .first();
+    const uploadArea = page.locator("input[type='file'], div[class*='border-dashed']").first();
     await expect(uploadArea).toBeAttached({ timeout: 10000 });
 
     const downloadLink = page.getByRole("link", { name: /template|unduh/i }).first();

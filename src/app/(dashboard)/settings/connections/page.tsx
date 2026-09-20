@@ -221,7 +221,8 @@ function ConnectionsContent() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-zinc-100">Koneksi Platform</h1>
           <p className="text-xs text-zinc-400 mt-1">
-            Hubungkan dan kelola akun media sosial untuk otomatisasi penerbitan dan penjadwalan konten.
+            Hubungkan dan kelola akun media sosial untuk otomatisasi penerbitan dan penjadwalan
+            konten.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -316,7 +317,8 @@ function ConnectionsContent() {
                 Meta Ecosystem
               </h3>
               <p className="text-xs text-zinc-400 mt-1.5 leading-relaxed">
-                Kelola publikasi otomatis ke <strong>Facebook Page</strong> dan <strong>Instagram Business</strong> secara bersamaan.
+                Kelola publikasi otomatis ke <strong>Facebook Page</strong> dan{" "}
+                <strong>Instagram Business</strong> secara bersamaan.
               </p>
 
               <div className="flex flex-wrap gap-1.5 mt-3.5 pt-3 border-t border-zinc-800/80">
@@ -367,7 +369,8 @@ function ConnectionsContent() {
                 TikTok Creator & Business
               </h3>
               <p className="text-xs text-zinc-400 mt-1.5 leading-relaxed">
-                Jadwalkan dan publikasikan konten video pendek langsung ke akun kreator atau bisnis TikTok Anda.
+                Jadwalkan dan publikasikan konten video pendek langsung ke akun kreator atau bisnis
+                TikTok Anda.
               </p>
 
               <div className="flex flex-wrap gap-1.5 mt-3.5 pt-3 border-t border-zinc-800/80">
@@ -418,7 +421,8 @@ function ConnectionsContent() {
                 Threads by Meta
               </h3>
               <p className="text-xs text-zinc-400 mt-1.5 leading-relaxed">
-                Bagikan opini, utas teks, dan posting media gambar/video langsung ke akun profil Threads Anda.
+                Bagikan opini, utas teks, dan posting media gambar/video langsung ke akun profil
+                Threads Anda.
               </p>
 
               <div className="flex flex-wrap gap-1.5 mt-3.5 pt-3 border-t border-zinc-800/80">
@@ -476,7 +480,8 @@ function ConnectionsContent() {
               <Share2 className="w-9 h-9 mx-auto text-zinc-600" />
               <p className="text-sm font-medium text-zinc-300">Belum ada akun yang terhubung</p>
               <p className="text-xs text-zinc-500 max-w-sm mx-auto">
-                Gunakan kartu platform di atas untuk menghubungkan akun Meta, TikTok, atau Threads pertama Anda.
+                Gunakan kartu platform di atas untuk menghubungkan akun Meta, TikTok, atau Threads
+                pertama Anda.
               </p>
             </div>
           ) : (
@@ -526,8 +531,8 @@ function ConnectionsContent() {
                           acc.platform === "TIKTOK"
                             ? "/api/connect/tiktok/authorize"
                             : acc.platform === "THREADS"
-                            ? "/api/connect/threads/authorize"
-                            : "/api/connect/meta/authorize"
+                              ? "/api/connect/threads/authorize"
+                              : "/api/connect/meta/authorize"
                         }
                       >
                         <Button variant="outline" size="sm">

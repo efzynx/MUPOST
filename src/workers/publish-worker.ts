@@ -1,17 +1,9 @@
 import { Worker, type Job } from "bullmq";
 import { eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
-import {
-  posts,
-  postTargets,
-  connectedAccounts,
-  type PlatformType,
-} from "@/lib/db/schema";
+import { posts, postTargets, connectedAccounts, type PlatformType } from "@/lib/db/schema";
 import { getRedisClient } from "@/lib/redis";
-import {
-  PUBLISH_QUEUE_NAME,
-  type PublishJobData,
-} from "@/lib/queue/publish-queue";
+import { PUBLISH_QUEUE_NAME, type PublishJobData } from "@/lib/queue/publish-queue";
 import { decrypt } from "@/lib/crypto";
 
 // ==========================================
@@ -469,9 +461,7 @@ export async function publishToThreads(
       const err = containerJson.error || {};
       const errorCode = String(err.code || containerRes.status);
       const isAuthError =
-        err.type === "OAuthException" ||
-        errorCode === "190" ||
-        containerRes.status === 401;
+        err.type === "OAuthException" || errorCode === "190" || containerRes.status === 401;
 
       return {
         targetId,
@@ -511,8 +501,7 @@ export async function publishToThreads(
                 success: false,
                 errorCode: "CONTAINER_PROCESSING_FAILED",
                 errorMessage:
-                  statusData.error_message ||
-                  "Pemrosesan media video di server Threads gagal.",
+                  statusData.error_message || "Pemrosesan media video di server Threads gagal.",
               };
             }
           }
@@ -607,11 +596,7 @@ export async function processPublishJob(
   const { postId, retryTargetId } = job.data;
 
   // 1. Query Post
-  const [post] = await db
-    .select()
-    .from(posts)
-    .where(eq(posts.id, postId))
-    .limit(1);
+  const [post] = await db.select().from(posts).where(eq(posts.id, postId)).limit(1);
 
   if (!post) {
     throw new Error(`Post with ID ${postId} not found`);

@@ -31,10 +31,7 @@ export async function POST(request: NextRequest, { params }: RouteParams): Promi
 
   try {
     await postManager.publishNow(user.id, id);
-    return NextResponse.json(
-      { postId: id, status: "QUEUED" },
-      { status: 202 }
-    );
+    return NextResponse.json({ postId: id, status: "QUEUED" }, { status: 202 });
   } catch (err) {
     if (err instanceof PostManagerError) {
       return NextResponse.json(

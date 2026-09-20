@@ -38,7 +38,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       .where(eq(posts.userId, user.id))
       .groupBy(posts.status);
 
-    type CountStatus = "TOTAL" | "PUBLISHED" | "SCHEDULED" | "QUEUED" | "DRAFT" | "FAILED" | "PARTIAL";
+    type CountStatus =
+      "TOTAL" | "PUBLISHED" | "SCHEDULED" | "QUEUED" | "DRAFT" | "FAILED" | "PARTIAL";
     const counts: Record<CountStatus, number> = {
       TOTAL: 0,
       PUBLISHED: 0,
@@ -81,11 +82,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     }
 
     // 4. Ambil 5 postingan terakhir / terbaru
-    const recentPostsResult = await postManager.listPosts(
-      user.id,
-      {},
-      { page: 1 }
-    );
+    const recentPostsResult = await postManager.listPosts(user.id, {}, { page: 1 });
 
     const recentPosts = recentPostsResult.posts.slice(0, 5);
 
