@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api-client";
@@ -25,7 +25,15 @@ import {
   FileText,
   ChevronRight,
   Activity,
+  Loader2,
 } from "lucide-react";
+import {
+  usePostRealtime,
+  useStatusTracker,
+  type PostStatusEvent,
+} from "@/lib/hooks/use-post-realtime";
+import { LiveSyncIndicator, TransitionToastList } from "@/components/ui/live-sync-indicator";
+import { cn } from "@/lib/utils";
 
 interface UserProfile {
   id: string;
@@ -52,7 +60,8 @@ interface PostItem {
   id: string;
   textContent: string;
   mediaUrls: string[] | null;
-  status: "DRAFT" | "SCHEDULED" | "QUEUED" | "PUBLISHED" | "PARTIAL" | "FAILED";
+  status:
+    "DRAFT" | "SCHEDULED" | "QUEUED" | "PUBLISHING" | "PUBLISHED" | "PARTIAL" | "FAILED" | string;
   scheduledAt: string | null;
   publishedAt: string | null;
   createdAt: string;
@@ -65,6 +74,8 @@ interface DashboardStats {
   scheduledPosts: number;
   draftPosts: number;
   failedPosts: number;
+  publishingPosts?: number;
+  queuedPosts?: number;
   platformDistribution: {
     META_PAGE: number;
     INSTAGRAM: number;
@@ -97,23 +108,45 @@ function getPlatformIcon(
   }
 }
 
-function getStatusBadge(status: PostItem["status"]) {
-  const map: Record<
-    PostItem["status"],
-    {
-      variant: "default" | "scheduled" | "published" | "failed" | "outline" | "secondary";
-      label: string;
-    }
-  > = {
-    DRAFT: { variant: "default", label: "Draft" },
-    SCHEDULED: { variant: "scheduled", label: "Terjadwal" },
-    QUEUED: { variant: "outline", label: "Antrean" },
-    PUBLISHED: { variant: "published", label: "Terpublikasi" },
-    PARTIAL: { variant: "scheduled", label: "Sebagian" },
-    FAILED: { variant: "failed", label: "Gagal" },
-  };
-  const s = map[status] ?? { variant: "outline" as const, label: status };
-  return <Badge variant={s.variant}>{s.label}</Badge>;
+function getStatusBadge(status: string) {
+  switch (status) {
+    case "DRAFT":
+      return <Badge variant="default">Draft</Badge>;
+    case "SCHEDULED":
+      return <Badge variant="scheduled">Terjadwal</Badge>;
+    case "QUEUED":
+      return (
+        <Badge variant="queued" className="gap-1.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-ping" />
+          Antrean
+        </Badge>
+      );
+    case "PUBLISHING":
+      return (
+        <Badge variant="publishing" className="gap-1.5">
+          <Loader2 className="w-3 h-3 animate-spin text-sky-400" />
+          Memproses
+        </Badge>
+      );
+    case "PUBLISHED":
+      return (
+        <Badge variant="published" className="gap-1.5">
+          <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+          Terpublikasi
+        </Badge>
+      );
+    case "PARTIAL":
+      return <Badge variant="scheduled">Sebagian</Badge>;
+    case "FAILED":
+      return (
+        <Badge variant="failed" className="gap-1.5">
+          <AlertCircle className="w-3 h-3 text-red-400" />
+          Gagal
+        </Badge>
+      );
+    default:
+      return <Badge variant="outline">{status}</Badge>;
+  }
 }
 
 function formatDate(dateStr: string) {
@@ -131,14 +164,28 @@ export default function DashboardPage() {
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    async function loadData() {
-      try {
-        const [meRes, statsRes] = await Promise.all([
-          apiFetch<{ user: UserProfile }>("/api/auth/me"),
-          apiFetch<{ data: DashboardData }>("/api/dashboard/stats"),
-        ]);
+  const isInitialLoadRef = useRef(true);
 
+  const loadStats = useCallback(async (silent = false) => {
+    try {
+      const statsRes = await apiFetch<{ data: DashboardData }>("/api/dashboard/stats");
+      if (statsRes.ok && statsRes.data?.data) {
+        setDashboardData(statsRes.data.data);
+      }
+    } catch {
+      // Ignore background errors
+    } finally {
+      isInitialLoadRef.current = false;
+      if (!silent) {
+        setIsLoading(false);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    async function init() {
+      try {
+        const meRes = await apiFetch<{ user: UserProfile }>("/api/auth/me");
         if (meRes.ok && meRes.data?.user) {
           setUser(meRes.data.user);
         } else {
@@ -146,29 +193,14 @@ export default function DashboardPage() {
           return;
         }
 
-        if (statsRes.ok && statsRes.data?.data) {
-          setDashboardData(statsRes.data.data);
-        }
+        await loadStats(false);
       } catch {
         router.push("/login");
-      } finally {
-        setIsLoading(false);
       }
     }
 
-    loadData();
-  }, [router]);
-
-  if (isLoading) {
-    return (
-      <div className="flex h-64 items-center justify-center text-zinc-500">
-        <div className="flex items-center gap-2.5 text-xs">
-          <div className="w-4 h-4 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin" />
-          <span>Memuat data dashboard...</span>
-        </div>
-      </div>
-    );
-  }
+    init();
+  }, [router, loadStats]);
 
   const accounts = dashboardData?.accounts ?? [];
   const stats = dashboardData?.stats;
@@ -176,42 +208,134 @@ export default function DashboardPage() {
   const hasConnectedAccounts = accounts.length > 0;
   const activeAccounts = accounts.filter((a) => a.status === "ACTIVE");
 
+  // Track real-time transitions on recent posts
+  const { transitioningIds, recentNotifications, dismissNotification } =
+    useStatusTracker(recentPosts);
+
+  // Real-time status updates via SSE + Smart Polling fallback
+  const handlePostStatusChange = useCallback(
+    (event: PostStatusEvent) => {
+      setDashboardData((prev) => {
+        if (!prev) return prev;
+        const updatedRecent = prev.recentPosts.map((post) => {
+          if (post.id === event.postId) {
+            return {
+              ...post,
+              status: event.status,
+              publishedAt: event.publishedAt ? String(event.publishedAt) : post.publishedAt,
+              scheduledAt: event.scheduledAt ? String(event.scheduledAt) : post.scheduledAt,
+              targets: event.targets
+                ? post.targets.map((target) => {
+                    const matchingTarget = event.targets?.find(
+                      (t) => t.id === target.id || t.platform === target.platform
+                    );
+                    if (matchingTarget) {
+                      return {
+                        ...target,
+                        status: matchingTarget.status,
+                      };
+                    }
+                    return target;
+                  })
+                : post.targets,
+            };
+          }
+          return post;
+        });
+
+        return {
+          ...prev,
+          recentPosts: updatedRecent,
+        };
+      });
+
+      // Sinkronisasi counter statistik di latar belakang
+      loadStats(true);
+    },
+    [loadStats]
+  );
+
+  // Determine if smart dynamic polling should run in active mode (3s) or idle mode (15s)
+  const hasActiveJobs = recentPosts.some(
+    (p) =>
+      p.status === "QUEUED" ||
+      p.status === "PUBLISHING" ||
+      p.targets.some((t) => t.status === "PENDING")
+  );
+
+  const { isRefreshing, lastUpdated, isLive, isSseConnected, connectionMode, refresh } =
+    usePostRealtime({
+      onStatusChange: handlePostStatusChange,
+      onReconcile: () => loadStats(true),
+      hasActiveJobs,
+      enabled: !isLoading,
+      activeInterval: 3000,
+      idleInterval: 15000,
+    });
+
+  if (isLoading) {
+    return (
+      <div className="flex h-64 items-center justify-center text-zinc-500">
+        <div className="flex items-center gap-2.5 text-xs">
+          <div className="w-5 h-5 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin" />
+          <span>Memuat data dashboard...</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      {/* Header Welcome */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-5 border-b border-zinc-800/80">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight text-zinc-100">
-            Ringkasan Dashboard
-          </h1>
-          <p className="text-xs text-zinc-400 mt-1">
-            Selamat datang kembali,{" "}
-            <span className="text-zinc-200 font-medium">{user?.fullName}</span> ({user?.email})
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {hasConnectedAccounts ? (
-            <Badge variant="published" className="h-6 gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              {activeAccounts.length} Akun Terhubung
-            </Badge>
-          ) : (
-            <Badge variant="failed" className="h-6 gap-1.5">
-              <AlertCircle className="w-3 h-3" />
-              Belum Ada Akun
-            </Badge>
-          )}
+      {/* Real-time Status Notifications Toast */}
+      <TransitionToastList notifications={recentNotifications} onDismiss={dismissNotification} />
+
+      {/* Header Welcome & Live Sync Indicator */}
+      <div className="flex flex-col gap-3 sm:gap-4 pb-5 border-b border-zinc-800/80">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-zinc-100">
+              Ringkasan Dashboard
+            </h1>
+            <p className="text-xs text-zinc-400 mt-0.5 sm:mt-1">
+              Selamat datang kembali,{" "}
+              <span className="text-zinc-200 font-medium">{user?.fullName}</span> ({user?.email})
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap justify-between sm:justify-end">
+            <LiveSyncIndicator
+              isLive={isLive}
+              isRefreshing={isRefreshing}
+              lastUpdated={lastUpdated}
+              hasActiveJobs={hasActiveJobs}
+              isSseConnected={isSseConnected}
+              connectionMode={connectionMode}
+              onRefresh={refresh}
+            />
+
+            {hasConnectedAccounts ? (
+              <Badge variant="published" className="h-7 px-2.5 gap-1.5 shrink-0">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                {activeAccounts.length} Akun Terhubung
+              </Badge>
+            ) : (
+              <Badge variant="failed" className="h-7 px-2.5 gap-1.5 shrink-0">
+                <AlertCircle className="w-3 h-3" />
+                Belum Ada Akun
+              </Badge>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* QUICK ACTIONS BAR */}
+      {/* QUICK ACTIONS BAR - TOUCH FRIENDLY */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <Link href="/posts/new" className="group">
-          <Card className="h-full hover:border-zinc-700 transition-colors border-zinc-800/80 bg-zinc-900/40">
-            <CardHeader className="p-4">
+        <Link href="/posts/new" className="group block">
+          <Card className="h-full hover:border-zinc-700 transition-colors border-zinc-800/80 bg-zinc-900/40 active:scale-[0.99] touch-manipulation">
+            <CardHeader className="p-4 sm:p-4.5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-200">
+                  <div className="w-9 h-9 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-200 shrink-0">
                     <PlusSquare className="w-4 h-4" />
                   </div>
                   <div>
@@ -223,18 +347,18 @@ export default function DashboardPage() {
                     </CardDescription>
                   </div>
                 </div>
-                <ArrowUpRight className="w-4 h-4 text-zinc-500 group-hover:text-zinc-200 transition-colors" />
+                <ArrowUpRight className="w-4 h-4 text-zinc-500 group-hover:text-zinc-200 transition-colors shrink-0" />
               </div>
             </CardHeader>
           </Card>
         </Link>
 
-        <Link href="/posts/import" className="group">
-          <Card className="h-full hover:border-zinc-700 transition-colors border-zinc-800/80 bg-zinc-900/40">
-            <CardHeader className="p-4">
+        <Link href="/posts/import" className="group block">
+          <Card className="h-full hover:border-zinc-700 transition-colors border-zinc-800/80 bg-zinc-900/40 active:scale-[0.99] touch-manipulation">
+            <CardHeader className="p-4 sm:p-4.5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-200">
+                  <div className="w-9 h-9 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-200 shrink-0">
                     <UploadCloud className="w-4 h-4" />
                   </div>
                   <div>
@@ -246,18 +370,18 @@ export default function DashboardPage() {
                     </CardDescription>
                   </div>
                 </div>
-                <ArrowUpRight className="w-4 h-4 text-zinc-500 group-hover:text-zinc-200 transition-colors" />
+                <ArrowUpRight className="w-4 h-4 text-zinc-500 group-hover:text-zinc-200 transition-colors shrink-0" />
               </div>
             </CardHeader>
           </Card>
         </Link>
 
-        <Link href="/settings/connections" className="group">
-          <Card className="h-full hover:border-zinc-700 transition-colors border-zinc-800/80 bg-zinc-900/40">
-            <CardHeader className="p-4">
+        <Link href="/settings/connections" className="group block">
+          <Card className="h-full hover:border-zinc-700 transition-colors border-zinc-800/80 bg-zinc-900/40 active:scale-[0.99] touch-manipulation">
+            <CardHeader className="p-4 sm:p-4.5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-200">
+                  <div className="w-9 h-9 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-200 shrink-0">
                     <Share2 className="w-4 h-4" />
                   </div>
                   <div>
@@ -269,7 +393,7 @@ export default function DashboardPage() {
                     </CardDescription>
                   </div>
                 </div>
-                <ArrowUpRight className="w-4 h-4 text-zinc-500 group-hover:text-zinc-200 transition-colors" />
+                <ArrowUpRight className="w-4 h-4 text-zinc-500 group-hover:text-zinc-200 transition-colors shrink-0" />
               </div>
             </CardHeader>
           </Card>
@@ -281,7 +405,7 @@ export default function DashboardPage() {
         <div className="space-y-6">
           {/* STATS METRIC TILES */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <Card className="p-4 border-zinc-800/80 bg-zinc-900/50">
+            <Card className="p-4 border-zinc-800/80 bg-zinc-900/50 transition-all">
               <div className="flex items-center justify-between">
                 <span className="text-xs text-zinc-400 font-medium">Total Post</span>
                 <Layers className="w-4 h-4 text-zinc-500" />
@@ -290,7 +414,7 @@ export default function DashboardPage() {
               <p className="text-[10px] text-zinc-500 mt-1">Seluruh riwayat posting</p>
             </Card>
 
-            <Card className="p-4 border-zinc-800/80 bg-zinc-900/50">
+            <Card className="p-4 border-zinc-800/80 bg-zinc-900/50 transition-all">
               <div className="flex items-center justify-between">
                 <span className="text-xs text-emerald-400/90 font-medium">Terpublikasi</span>
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
@@ -301,18 +425,31 @@ export default function DashboardPage() {
               <p className="text-[10px] text-zinc-500 mt-1">Berhasil tayang di platform</p>
             </Card>
 
-            <Card className="p-4 border-zinc-800/80 bg-zinc-900/50">
+            <Card className="p-4 border-zinc-800/80 bg-zinc-900/50 transition-all">
               <div className="flex items-center justify-between">
-                <span className="text-xs text-amber-400/90 font-medium">Terjadwal</span>
+                <span className="text-xs text-amber-400/90 font-medium">Terjadwal & Antrean</span>
                 <Clock className="w-4 h-4 text-amber-400" />
               </div>
               <div className="mt-2 text-2xl font-bold text-zinc-100">
                 {stats?.scheduledPosts ?? 0}
               </div>
-              <p className="text-[10px] text-zinc-500 mt-1">Menunggu waktu tayang</p>
+              <p className="text-[10px] text-zinc-500 mt-1">
+                {(stats?.publishingPosts ?? 0) > 0 ? (
+                  <span className="text-sky-400 font-medium inline-flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-ping" />
+                    {stats?.publishingPosts} sedang diproses
+                  </span>
+                ) : (stats?.queuedPosts ?? 0) > 0 ? (
+                  <span className="text-indigo-300 font-medium">
+                    {stats?.queuedPosts} dalam antrean
+                  </span>
+                ) : (
+                  "Menunggu waktu / proses"
+                )}
+              </p>
             </Card>
 
-            <Card className="p-4 border-zinc-800/80 bg-zinc-900/50">
+            <Card className="p-4 border-zinc-800/80 bg-zinc-900/50 transition-all">
               <div className="flex items-center justify-between">
                 <span className="text-xs text-zinc-400 font-medium">Draft & Gagal</span>
                 <FileText className="w-4 h-4 text-zinc-500" />
@@ -336,7 +473,7 @@ export default function DashboardPage() {
                 </h2>
                 <Link
                   href="/posts"
-                  className="text-xs text-zinc-400 hover:text-zinc-200 flex items-center gap-1 transition-colors"
+                  className="min-h-[40px] px-2 text-xs text-zinc-400 hover:text-zinc-200 flex items-center gap-1 transition-colors touch-manipulation"
                 >
                   Lihat Semua
                   <ChevronRight className="w-3.5 h-3.5" />
@@ -347,55 +484,94 @@ export default function DashboardPage() {
                 <Card className="p-8 border-zinc-800/80 bg-zinc-900/30 text-center">
                   <p className="text-xs text-zinc-400">Belum ada riwayat postingan.</p>
                   <Link href="/posts/new" className="inline-block mt-3">
-                    <Button variant="primary" size="sm">
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      className="min-h-[42px] px-4 touch-manipulation"
+                    >
                       Buat Postingan Sekarang
                     </Button>
                   </Link>
                 </Card>
               ) : (
                 <div className="space-y-2.5">
-                  {recentPosts.map((post) => (
-                    <Card
-                      key={post.id}
-                      className="p-4 border-zinc-800/80 bg-zinc-900/40 hover:border-zinc-700 transition-colors"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs text-zinc-200 font-medium line-clamp-2 leading-relaxed">
-                            {post.textContent}
-                          </p>
-                          <div className="flex flex-wrap items-center gap-2.5 mt-2.5 text-[11px] text-zinc-500">
-                            <span>{formatDate(post.createdAt)}</span>
-                            {post.scheduledAt && (
-                              <span className="flex items-center gap-1 text-amber-400/80">
-                                <Clock className="w-3 h-3" />
-                                {formatDate(post.scheduledAt)}
-                              </span>
-                            )}
-                            <div className="flex items-center gap-1.5 ml-1">
-                              {post.targets.map((t) => (
-                                <span key={t.id} title={t.platform}>
-                                  {getPlatformIcon(t.platform, "w-3.5 h-3.5")}
+                  {recentPosts.map((post) => {
+                    const isTransitioning = transitioningIds.has(post.id);
+                    const transition = transitioningIds.get(post.id);
+                    const isJustPublished = transition?.newStatus === "PUBLISHED";
+                    const isJustFailed = transition?.newStatus === "FAILED";
+                    const isProcessing = post.status === "QUEUED" || post.status === "PUBLISHING";
+
+                    return (
+                      <Card
+                        key={post.id}
+                        className={cn(
+                          "p-3.5 sm:p-4 rounded-xl transition-all duration-500 hover:border-zinc-700",
+                          isTransitioning &&
+                            isJustPublished &&
+                            "ring-2 ring-emerald-500/80 bg-emerald-950/20 shadow-lg shadow-emerald-950/30 border-emerald-500/40",
+                          isTransitioning &&
+                            isJustFailed &&
+                            "ring-2 ring-red-500/80 bg-red-950/20 shadow-lg shadow-red-950/30 border-red-500/40",
+                          isTransitioning &&
+                            !isJustPublished &&
+                            !isJustFailed &&
+                            "ring-2 ring-cyan-500/70 bg-cyan-950/20 shadow-lg shadow-cyan-950/30 border-cyan-500/40",
+                          !isTransitioning &&
+                            isProcessing &&
+                            "border-indigo-800/80 bg-zinc-900/50 shadow-sm",
+                          !isTransitioning && !isProcessing && "border-zinc-800/80 bg-zinc-900/40"
+                        )}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                              {getStatusBadge(post.status)}
+                              {isTransitioning && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 animate-pulse">
+                                  Status Terbarui &rarr; {transition?.newStatus}
                                 </span>
-                              ))}
+                              )}
+                            </div>
+
+                            <p className="text-xs text-zinc-200 font-medium line-clamp-2 leading-relaxed">
+                              {post.textContent}
+                            </p>
+
+                            <div className="flex flex-wrap items-center gap-2.5 mt-2.5 text-[11px] text-zinc-500">
+                              <span>{formatDate(post.createdAt)}</span>
+                              {post.scheduledAt && (
+                                <span className="flex items-center gap-1 text-amber-400/80">
+                                  <Clock className="w-3 h-3" />
+                                  {formatDate(post.scheduledAt)}
+                                </span>
+                              )}
+                              <div className="flex items-center gap-1.5 ml-1">
+                                {post.targets.map((t) => (
+                                  <span key={t.id} title={t.platform} className="opacity-80">
+                                    {getPlatformIcon(t.platform, "w-3.5 h-3.5")}
+                                  </span>
+                                ))}
+                              </div>
                             </div>
                           </div>
+
+                          <div className="shrink-0 flex items-center gap-2 pt-0.5">
+                            <Link href="/posts">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                aria-label="Buka daftar post"
+                                className="min-h-[44px] min-w-[44px] p-0 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 touch-manipulation"
+                              >
+                                <ArrowUpRight className="w-4 h-4" />
+                              </Button>
+                            </Link>
+                          </div>
                         </div>
-                        <div className="shrink-0 flex items-center gap-2">
-                          {getStatusBadge(post.status)}
-                          <Link href={`/posts`}>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 px-2 text-zinc-400 hover:text-zinc-200"
-                            >
-                              <ArrowUpRight className="w-3.5 h-3.5" />
-                            </Button>
-                          </Link>
-                        </div>
-                      </div>
-                    </Card>
-                  ))}
+                      </Card>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -461,7 +637,7 @@ export default function DashboardPage() {
                     </CardTitle>
                     <Link
                       href="/settings/connections"
-                      className="text-[11px] text-cyan-400 hover:text-cyan-300 transition-colors"
+                      className="min-h-[36px] px-2 flex items-center text-[11px] text-cyan-400 hover:text-cyan-300 transition-colors touch-manipulation"
                     >
                       Kelola
                     </Link>
@@ -542,7 +718,10 @@ export default function DashboardPage() {
 
             <div className="pt-2">
               <Link href="/settings/connections">
-                <Button variant="primary" className="text-xs gap-2">
+                <Button
+                  variant="primary"
+                  className="text-xs gap-2 min-h-[42px] px-4 touch-manipulation"
+                >
                   <Share2 className="w-4 h-4" />
                   Hubungkan Akun Sekarang
                 </Button>

@@ -9,6 +9,9 @@ import {
   type PlatformType,
 } from "@/lib/db/schema";
 import { getPublishQueue, type PublishJobData } from "@/lib/queue/publish-queue";
+import { publishPostEvent } from "@/lib/services/post-events";
+import { decrypt } from "@/lib/crypto";
+import { deleteFromPlatform, type PlatformDeleteResult } from "@/lib/services/platform-adapters";
 
 // ==========================================
 // Konstanta
@@ -23,7 +26,7 @@ const MIN_SCHEDULE_MS = 5 * 60 * 1000;
 const MAX_SCHEDULE_MS = 365 * 24 * 60 * 60 * 1000;
 
 /** Status yang tidak bisa diedit. */
-const IMMUTABLE_STATUSES: PostStatus[] = ["PUBLISHED", "FAILED", "PARTIAL"];
+const IMMUTABLE_STATUSES: PostStatus[] = ["PUBLISHED", "FAILED", "PARTIAL", "PUBLISHING"];
 
 // ==========================================
 // Types
@@ -49,6 +52,7 @@ export interface UpdatePostInput {
 export interface PostFilters {
   status?: PostStatus[];
   platform?: PlatformType[];
+  ids?: string[];
 }
 
 export interface PaginationInput {
@@ -76,6 +80,20 @@ export interface ListPostsResult {
   page: number;
   pageSize: number;
   totalPages: number;
+}
+
+export interface DeletePostOptions {
+  /**
+   * Jika true, postingan yang berstatus PUBLISHED di platform pihak ketiga juga akan dihapus.
+   */
+  deleteOnPlatforms?: boolean;
+  syncDelete?: boolean;
+}
+
+export interface DeletePostResult {
+  success: boolean;
+  deletedPostId: string;
+  platformResults?: PlatformDeleteResult[];
 }
 
 // ==========================================
@@ -246,6 +264,20 @@ export class PostManagerService {
       (newPost as any).meta = updatedMeta;
     }
 
+    if (status === "QUEUED") {
+      await publishPostEvent({
+        type: "POST_STATUS_CHANGED",
+        postId: newPost.id,
+        userId,
+        status: "QUEUED",
+        targets: insertedTargets.map((t) => ({
+          id: t.id,
+          platform: t.platform,
+          status: t.status,
+        })),
+      });
+    }
+
     return {
       ...newPost,
       targets: insertedTargets.map((t) => ({
@@ -392,8 +424,15 @@ export class PostManagerService {
    *
    * - Verifikasi ownership.
    * - Jika status SCHEDULED, coba batalkan BullMQ delayed job.
+   * - Jika opsi deleteOnPlatforms / syncDelete bernilai true, sinkronisasikan
+   *   penghapusan ke platform target yang berstatus PUBLISHED dan memiliki platformPostId.
+   * - Tangani kesalahan eksternal secara graceful (misal postingan sudah dihapus manual oleh pengguna).
    */
-  async deletePost(userId: string, postId: string): Promise<void> {
+  async deletePost(
+    userId: string,
+    postId: string,
+    options?: boolean | DeletePostOptions
+  ): Promise<DeletePostResult> {
     const existing = await this.getPost(userId, postId);
 
     // Coba batalkan BullMQ job jika SCHEDULED
@@ -422,6 +461,111 @@ export class PostManagerService {
       }
     }
 
+    const shouldDeleteOnPlatforms =
+      typeof options === "boolean"
+        ? options
+        : Boolean(options?.deleteOnPlatforms || options?.syncDelete);
+
+    let platformResults: PlatformDeleteResult[] | undefined;
+
+    if (shouldDeleteOnPlatforms && existing.targets && existing.targets.length > 0) {
+      const publishedTargets = existing.targets.filter(
+        (t) => t.status === "PUBLISHED" && Boolean(t.platformPostId)
+      );
+
+      if (publishedTargets.length > 0) {
+        const accountIds = Array.from(new Set(publishedTargets.map((t) => t.connectedAccountId)));
+        const accounts = await db
+          .select()
+          .from(connectedAccounts)
+          .where(inArray(connectedAccounts.id, accountIds));
+        const accountsMap = new Map(accounts.map((a) => [a.id, a]));
+
+        const deletePromises = publishedTargets.map(
+          async (target): Promise<PlatformDeleteResult> => {
+            const account = accountsMap.get(target.connectedAccountId);
+            if (!account) {
+              return {
+                targetId: target.id,
+                platform: target.platform,
+                platformPostId: target.platformPostId,
+                success: false,
+                errorCode: "ACCOUNT_NOT_FOUND",
+                errorMessage: "Akun platform yang terhubung tidak ditemukan.",
+              };
+            }
+
+            let accessToken: string;
+            try {
+              accessToken = decrypt(account.accessTokenEnc);
+            } catch {
+              return {
+                targetId: target.id,
+                platform: target.platform,
+                platformPostId: target.platformPostId,
+                success: false,
+                errorCode: "DECRYPT_ERROR",
+                errorMessage: "Gagal mendekripsi token akses akun.",
+              };
+            }
+
+            try {
+              return await deleteFromPlatform(
+                target.platform,
+                target.id,
+                target.platformPostId!,
+                account,
+                accessToken
+              );
+            } catch (err: unknown) {
+              const errorObj = err as Error;
+              return {
+                targetId: target.id,
+                platform: target.platform,
+                platformPostId: target.platformPostId,
+                success: false,
+                errorCode: "DELETE_EXCEPTION",
+                errorMessage:
+                  errorObj?.message || "Terjadi kesalahan saat menghapus postingan di platform.",
+              };
+            }
+          }
+        );
+
+        const settled = await Promise.allSettled(deletePromises);
+        platformResults = settled.map((s, idx) => {
+          if (s.status === "fulfilled") {
+            return s.value;
+          }
+          const target = publishedTargets[idx]!;
+          return {
+            targetId: target.id,
+            platform: target.platform,
+            platformPostId: target.platformPostId,
+            success: false,
+            errorCode: "UNHANDLED_EXCEPTION",
+            errorMessage: s.reason?.message || "Gagal menghapus postingan di platform eksternal.",
+          };
+        });
+
+        // Jika ada token yang kedaluwarsa, tandai connected_accounts
+        const now = new Date();
+        for (const res of platformResults) {
+          if (res.needsReauth) {
+            const target = publishedTargets.find((t) => t.id === res.targetId);
+            if (target) {
+              await db
+                .update(connectedAccounts)
+                .set({ status: "NEEDS_REAUTH", updatedAt: now })
+                .where(eq(connectedAccounts.id, target.connectedAccountId));
+            }
+          }
+        }
+      } else {
+        platformResults = [];
+      }
+    }
+
     // DELETE posts (cascade ke post_targets via FK)
     const result = await db
       .delete(posts)
@@ -431,6 +575,19 @@ export class PostManagerService {
     if (result.length === 0) {
       throw new PostManagerError("NOT_FOUND", 404, "Post tidak ditemukan.");
     }
+
+    await publishPostEvent({
+      type: "POST_DELETED",
+      postId,
+      userId,
+      status: existing.status,
+    });
+
+    return {
+      success: true,
+      deletedPostId: postId,
+      platformResults,
+    };
   }
 
   /**
@@ -492,6 +649,10 @@ export class PostManagerService {
 
     // Build WHERE conditions
     const conditions: SQL[] = [eq(posts.userId, userId)];
+
+    if (filters.ids && filters.ids.length > 0) {
+      conditions.push(inArray(posts.id, filters.ids));
+    }
 
     if (filters.status && filters.status.length > 0) {
       conditions.push(inArray(posts.status, filters.status));
@@ -648,6 +809,13 @@ export class PostManagerService {
       })
       .where(and(eq(posts.id, postId), eq(posts.userId, userId)));
 
+    await publishPostEvent({
+      type: "POST_STATUS_CHANGED",
+      postId,
+      userId,
+      status: "QUEUED",
+    });
+
     // Enqueue job
     const queue = getPublishQueue();
     await queue.add(
@@ -709,9 +877,17 @@ export class PostManagerService {
       })
       .where(and(eq(posts.id, postId), eq(posts.userId, userId)));
 
+    await publishPostEvent({
+      type: "POST_STATUS_CHANGED",
+      postId,
+      userId,
+      status: "QUEUED",
+    });
+
     const queue = getPublishQueue();
     await queue.add(`publish-now-${postId}`, { postId } satisfies PublishJobData, { priority: 1 });
   }
 }
 
 export const postManager = new PostManagerService();
+export { PostManagerService as PostManager };
