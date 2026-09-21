@@ -9,6 +9,7 @@ import {
   type PlatformType,
 } from "@/lib/db/schema";
 import { getPublishQueue, type PublishJobData } from "@/lib/queue/publish-queue";
+import { publishPostEvent } from "@/lib/services/post-events";
 
 // ==========================================
 // Konstanta
@@ -23,7 +24,7 @@ const MIN_SCHEDULE_MS = 5 * 60 * 1000;
 const MAX_SCHEDULE_MS = 365 * 24 * 60 * 60 * 1000;
 
 /** Status yang tidak bisa diedit. */
-const IMMUTABLE_STATUSES: PostStatus[] = ["PUBLISHED", "FAILED", "PARTIAL"];
+const IMMUTABLE_STATUSES: PostStatus[] = ["PUBLISHED", "FAILED", "PARTIAL", "PUBLISHING"];
 
 // ==========================================
 // Types
@@ -49,6 +50,7 @@ export interface UpdatePostInput {
 export interface PostFilters {
   status?: PostStatus[];
   platform?: PlatformType[];
+  ids?: string[];
 }
 
 export interface PaginationInput {
@@ -246,6 +248,20 @@ export class PostManagerService {
       (newPost as any).meta = updatedMeta;
     }
 
+    if (status === "QUEUED") {
+      await publishPostEvent({
+        type: "POST_STATUS_CHANGED",
+        postId: newPost.id,
+        userId,
+        status: "QUEUED",
+        targets: insertedTargets.map((t) => ({
+          id: t.id,
+          platform: t.platform,
+          status: t.status,
+        })),
+      });
+    }
+
     return {
       ...newPost,
       targets: insertedTargets.map((t) => ({
@@ -431,6 +447,13 @@ export class PostManagerService {
     if (result.length === 0) {
       throw new PostManagerError("NOT_FOUND", 404, "Post tidak ditemukan.");
     }
+
+    await publishPostEvent({
+      type: "POST_DELETED",
+      postId,
+      userId,
+      status: existing.status,
+    });
   }
 
   /**
@@ -492,6 +515,10 @@ export class PostManagerService {
 
     // Build WHERE conditions
     const conditions: SQL[] = [eq(posts.userId, userId)];
+
+    if (filters.ids && filters.ids.length > 0) {
+      conditions.push(inArray(posts.id, filters.ids));
+    }
 
     if (filters.status && filters.status.length > 0) {
       conditions.push(inArray(posts.status, filters.status));
@@ -648,6 +675,13 @@ export class PostManagerService {
       })
       .where(and(eq(posts.id, postId), eq(posts.userId, userId)));
 
+    await publishPostEvent({
+      type: "POST_STATUS_CHANGED",
+      postId,
+      userId,
+      status: "QUEUED",
+    });
+
     // Enqueue job
     const queue = getPublishQueue();
     await queue.add(
@@ -708,6 +742,13 @@ export class PostManagerService {
         updatedAt: new Date(),
       })
       .where(and(eq(posts.id, postId), eq(posts.userId, userId)));
+
+    await publishPostEvent({
+      type: "POST_STATUS_CHANGED",
+      postId,
+      userId,
+      status: "QUEUED",
+    });
 
     const queue = getPublishQueue();
     await queue.add(`publish-now-${postId}`, { postId } satisfies PublishJobData, { priority: 1 });

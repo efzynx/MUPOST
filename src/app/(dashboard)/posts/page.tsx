@@ -53,7 +53,7 @@ interface PostItem {
   id: string;
   textContent: string;
   mediaUrls: string[] | null;
-  status: "DRAFT" | "SCHEDULED" | "QUEUED" | "PUBLISHED" | "PARTIAL" | "FAILED";
+  status: "DRAFT" | "SCHEDULED" | "QUEUED" | "PUBLISHING" | "PUBLISHED" | "PARTIAL" | "FAILED";
   scheduledAt: string | null;
   publishedAt: string | null;
   createdAt: string;
@@ -95,13 +95,21 @@ function getStatusBadge(status: PostItem["status"]) {
   const map: Record<
     PostItem["status"],
     {
-      variant: "default" | "scheduled" | "published" | "failed" | "outline" | "secondary";
+      variant:
+        | "default"
+        | "scheduled"
+        | "published"
+        | "failed"
+        | "outline"
+        | "secondary"
+        | "publishing";
       label: string;
     }
   > = {
     DRAFT: { variant: "default", label: "Draft" },
     SCHEDULED: { variant: "scheduled", label: "Terjadwal" },
     QUEUED: { variant: "outline", label: "Antrean" },
+    PUBLISHING: { variant: "publishing", label: "Memproses" },
     PUBLISHED: { variant: "published", label: "Terpublikasi" },
     PARTIAL: { variant: "scheduled", label: "Sebagian" },
     FAILED: { variant: "failed", label: "Gagal" },
