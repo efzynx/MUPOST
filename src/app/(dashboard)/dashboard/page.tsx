@@ -27,7 +27,7 @@ import {
   Activity,
   Loader2,
 } from "lucide-react";
-import { useSmartPolling, useStatusTracker } from "@/lib/hooks/use-smart-polling";
+import { usePostRealtime, useStatusTracker, type PostStatusEvent } from "@/lib/hooks/use-post-realtime";
 import { LiveSyncIndicator, TransitionToastList } from "@/components/ui/live-sync-indicator";
 import { cn } from "@/lib/utils";
 
@@ -69,6 +69,8 @@ interface DashboardStats {
   scheduledPosts: number;
   draftPosts: number;
   failedPosts: number;
+  publishingPosts?: number;
+  queuedPosts?: number;
   platformDistribution: {
     META_PAGE: number;
     INSTAGRAM: number;
@@ -141,7 +143,6 @@ function getStatusBadge(status: string) {
       return <Badge variant="outline">{status}</Badge>;
   }
 }
-}
 
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString("id-ID", {
@@ -205,6 +206,49 @@ export default function DashboardPage() {
   // Track real-time transitions on recent posts
   const { transitioningIds, recentNotifications, dismissNotification } = useStatusTracker(recentPosts);
 
+  // Real-time status updates via SSE + Smart Polling fallback
+  const handlePostStatusChange = useCallback(
+    (event: PostStatusEvent) => {
+      setDashboardData((prev) => {
+        if (!prev) return prev;
+        const updatedRecent = prev.recentPosts.map((post) => {
+          if (post.id === event.postId) {
+            return {
+              ...post,
+              status: event.status,
+              publishedAt: event.publishedAt ? String(event.publishedAt) : post.publishedAt,
+              scheduledAt: event.scheduledAt ? String(event.scheduledAt) : post.scheduledAt,
+              targets: event.targets
+                ? post.targets.map((target) => {
+                    const matchingTarget = event.targets?.find(
+                      (t) => t.id === target.id || t.platform === target.platform
+                    );
+                    if (matchingTarget) {
+                      return {
+                        ...target,
+                        status: matchingTarget.status,
+                      };
+                    }
+                    return target;
+                  })
+                : post.targets,
+            };
+          }
+          return post;
+        });
+
+        return {
+          ...prev,
+          recentPosts: updatedRecent,
+        };
+      });
+
+      // Sinkronisasi counter statistik di latar belakang
+      loadStats(true);
+    },
+    [loadStats]
+  );
+
   // Determine if smart dynamic polling should run in active mode (3s) or idle mode (15s)
   const hasActiveJobs = recentPosts.some(
     (p) =>
@@ -213,15 +257,15 @@ export default function DashboardPage() {
       p.targets.some((t) => t.status === "PENDING")
   );
 
-  const { isRefreshing, lastUpdated, isLive, refresh } = useSmartPolling(
-    () => loadStats(true),
-    hasActiveJobs,
-    {
+  const { isRefreshing, lastUpdated, isLive, isSseConnected, connectionMode, refresh } =
+    usePostRealtime({
+      onStatusChange: handlePostStatusChange,
+      onReconcile: () => loadStats(true),
+      hasActiveJobs,
+      enabled: !isLoading,
       activeInterval: 3000,
       idleInterval: 15000,
-      enabled: !isLoading,
-    }
-  );
+    });
 
   if (isLoading) {
     return (
@@ -261,6 +305,8 @@ export default function DashboardPage() {
               isRefreshing={isRefreshing}
               lastUpdated={lastUpdated}
               hasActiveJobs={hasActiveJobs}
+              isSseConnected={isSseConnected}
+              connectionMode={connectionMode}
               onRefresh={refresh}
             />
 
@@ -384,7 +430,20 @@ export default function DashboardPage() {
               <div className="mt-2 text-2xl font-bold text-zinc-100">
                 {stats?.scheduledPosts ?? 0}
               </div>
-              <p className="text-[10px] text-zinc-500 mt-1">Menunggu waktu / proses</p>
+              <p className="text-[10px] text-zinc-500 mt-1">
+                {(stats?.publishingPosts ?? 0) > 0 ? (
+                  <span className="text-sky-400 font-medium inline-flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-ping" />
+                    {stats?.publishingPosts} sedang diproses
+                  </span>
+                ) : (stats?.queuedPosts ?? 0) > 0 ? (
+                  <span className="text-indigo-300 font-medium">
+                    {stats?.queuedPosts} dalam antrean
+                  </span>
+                ) : (
+                  "Menunggu waktu / proses"
+                )}
+              </p>
             </Card>
 
             <Card className="p-4 border-zinc-800/80 bg-zinc-900/50 transition-all">

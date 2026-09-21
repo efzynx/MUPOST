@@ -1,6 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
+export {
+  usePostRealtime,
+  useStatusTracker,
+  type PostStatusEvent,
+  type PostRealtimeOptions,
+  type StatusTransition,
+  type ConnectionMode,
+} from "./use-post-realtime";
 
 export interface SmartPollingOptions {
   /**
@@ -19,14 +27,6 @@ export interface SmartPollingOptions {
    * Jalankan fetch saat window kembali fokus / online, default: true.
    */
   refreshOnFocus?: boolean;
-}
-
-export interface StatusTransition {
-  postId: string;
-  textContent: string;
-  oldStatus: string;
-  newStatus: string;
-  timestamp: number;
 }
 
 export function useSmartPolling(
@@ -207,80 +207,3 @@ export function useSmartPolling(
   };
 }
 
-/**
- * Hook untuk melacak transisi status postingan dan memberikan visual feedback yang jelas.
- */
-export function useStatusTracker<
-  T extends { id: string; status: string; textContent?: string }
->(items: T[]) {
-  const previousStatusMap = useRef<Map<string, string>>(new Map());
-  const [transitioningIds, setTransitioningIds] = useState<Map<string, { oldStatus: string; newStatus: string }>>(
-    new Map()
-  );
-  const [recentNotifications, setRecentNotifications] = useState<StatusTransition[]>([]);
-
-  useEffect(() => {
-    const prevMap = previousStatusMap.current;
-    const nextMap = new Map<string, string>();
-    const newTransitions = new Map<string, { oldStatus: string; newStatus: string }>();
-    const notifications: StatusTransition[] = [];
-
-    // Jangan trigger transisi pada pemuatan pertama (saat prevMap masih kosong)
-    const isInitialLoad = prevMap.size === 0;
-
-    for (const item of items) {
-      nextMap.set(item.id, item.status);
-
-      if (!isInitialLoad && prevMap.has(item.id)) {
-        const oldStatus = prevMap.get(item.id)!;
-        if (oldStatus !== item.status) {
-          newTransitions.set(item.id, { oldStatus, newStatus: item.status });
-          notifications.push({
-            postId: item.id,
-            textContent: item.textContent || "Postingan",
-            oldStatus,
-            newStatus: item.status,
-            timestamp: Date.now(),
-          });
-        }
-      }
-    }
-
-    previousStatusMap.current = nextMap;
-
-    if (newTransitions.size > 0) {
-      setTransitioningIds((prev) => {
-        const merged = new Map(prev);
-        newTransitions.forEach((data, id) => {
-          merged.set(id, data);
-        });
-        return merged;
-      });
-
-      setRecentNotifications((prev) => [...notifications, ...prev].slice(0, 5));
-
-      // Hapus status transisi setelah 5 detik agar animasi selesai
-      const timer = setTimeout(() => {
-        setTransitioningIds((prev) => {
-          const next = new Map(prev);
-          newTransitions.forEach((_, id) => {
-            next.delete(id);
-          });
-          return next;
-        });
-      }, 5000);
-
-      return () => clearTimeout(timer);
-    }
-  }, [items]);
-
-  const dismissNotification = useCallback((postId: string) => {
-    setRecentNotifications((prev) => prev.filter((n) => n.postId !== postId));
-  }, []);
-
-  return {
-    transitioningIds,
-    recentNotifications,
-    dismissNotification,
-  };
-}
