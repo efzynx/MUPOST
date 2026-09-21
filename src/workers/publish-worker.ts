@@ -5,6 +5,7 @@ import { posts, postTargets, connectedAccounts, type PlatformType } from "@/lib/
 import { getRedisClient } from "@/lib/redis";
 import { PUBLISH_QUEUE_NAME, type PublishJobData } from "@/lib/queue/publish-queue";
 import { decrypt } from "@/lib/crypto";
+import { publishPostEvent } from "@/lib/services/post-events";
 
 // ==========================================
 // Types
@@ -788,14 +789,32 @@ export async function processPublishJob(
     };
   }
 
-  // 3. Query Connected Accounts
-  const accountIds = Array.from(new Set(eligibleTargets.map((t) => t.connectedAccountId)));
-  const accounts = await db
-    .select()
-    .from(connectedAccounts)
-    .where(inArray(connectedAccounts.id, accountIds));
+  // Update status ke PUBLISHING dan publikasikan event status real-time
+  const startTime = new Date();
+  await db
+    .update(posts)
+    .set({
+      status: "PUBLISHING",
+      updatedAt: startTime,
+    })
+    .where(eq(posts.id, postId));
 
-  const accountsMap = new Map(accounts.map((a) => [a.id, a]));
+  await publishPostEvent({
+    type: "POST_STATUS_CHANGED",
+    postId,
+    userId: post.userId,
+    status: "PUBLISHING",
+  });
+
+  try {
+    // 3. Query Connected Accounts
+    const accountIds = Array.from(new Set(eligibleTargets.map((t) => t.connectedAccountId)));
+    const accounts = await db
+      .select()
+      .from(connectedAccounts)
+      .where(inArray(connectedAccounts.id, accountIds));
+
+    const accountsMap = new Map(accounts.map((a) => [a.id, a]));
 
   // 4. Eksekusi paralel per target
   const publishPromises = eligibleTargets.map(async (target) => {
@@ -933,20 +952,58 @@ export async function processPublishJob(
     postFinalStatus = "FAILED";
   }
 
-  await db
-    .update(posts)
-    .set({
-      status: postFinalStatus,
-      publishedAt: postFinalStatus === "PUBLISHED" ? now : post.publishedAt,
-      updatedAt: now,
-    })
-    .where(eq(posts.id, postId));
+    const publishedAt = postFinalStatus === "PUBLISHED" ? now : post.publishedAt;
 
-  return {
-    postId,
-    postStatus: postFinalStatus,
-    results,
-  };
+    await db
+      .update(posts)
+      .set({
+        status: postFinalStatus,
+        publishedAt,
+        updatedAt: now,
+      })
+      .where(eq(posts.id, postId));
+
+    await publishPostEvent({
+      type: "POST_STATUS_CHANGED",
+      postId,
+      userId: post.userId,
+      status: postFinalStatus,
+      publishedAt,
+      targets: results.map((r) => ({
+        id: r.targetId,
+        platform: r.platform,
+        status: r.success ? "PUBLISHED" : "FAILED",
+        errorCode: r.errorCode,
+        errorMessage: r.errorMessage,
+        publishedAt: r.publishedAt,
+      })),
+    });
+
+    return {
+      postId,
+      postStatus: postFinalStatus,
+      results,
+    };
+  } catch (error) {
+    const errorTime = new Date();
+    await db
+      .update(posts)
+      .set({
+        status: "FAILED",
+        updatedAt: errorTime,
+      })
+      .where(eq(posts.id, postId))
+      .catch(() => {});
+
+    await publishPostEvent({
+      type: "POST_STATUS_CHANGED",
+      postId,
+      userId: post.userId,
+      status: "FAILED",
+    }).catch(() => {});
+
+    throw error;
+  }
 }
 
 // ==========================================
@@ -975,11 +1032,31 @@ export function createPublishWorker(
     console.log(`[PublishWorker] Job ${job.id} for post ${job.data.postId} completed.`);
   });
 
-  worker.on("failed", (job, err) => {
+  worker.on("failed", async (job, err) => {
     console.error(
       `[PublishWorker] Job ${job?.id} for post ${job?.data?.postId} failed with error:`,
       err
     );
+    if (job?.data?.postId) {
+      try {
+        const [post] = await db.select().from(posts).where(eq(posts.id, job.data.postId)).limit(1);
+        if (post && post.status === "PUBLISHING") {
+          await db
+            .update(posts)
+            .set({ status: "FAILED", updatedAt: new Date() })
+            .where(eq(posts.id, job.data.postId));
+
+          await publishPostEvent({
+            type: "POST_STATUS_CHANGED",
+            postId: job.data.postId,
+            userId: post.userId,
+            status: "FAILED",
+          });
+        }
+      } catch {
+        // ignore
+      }
+    }
   });
 
   return worker;

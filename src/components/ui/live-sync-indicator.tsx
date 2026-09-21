@@ -3,13 +3,15 @@
 import React, { useState, useEffect } from "react";
 import { RefreshCw, Radio, CheckCircle2, AlertCircle, X, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { StatusTransition } from "@/lib/hooks/use-smart-polling";
+import type { StatusTransition, ConnectionMode } from "@/lib/hooks/use-post-realtime";
 
 interface LiveSyncIndicatorProps {
   isLive: boolean;
   isRefreshing: boolean;
   lastUpdated: Date | null;
   hasActiveJobs: boolean;
+  isSseConnected?: boolean;
+  connectionMode?: ConnectionMode;
   onRefresh: () => void;
   className?: string;
 }
@@ -19,6 +21,8 @@ export function LiveSyncIndicator({
   isRefreshing,
   lastUpdated,
   hasActiveJobs,
+  isSseConnected = false,
+  connectionMode,
   onRefresh,
   className,
 }: LiveSyncIndicatorProps) {
@@ -77,12 +81,14 @@ export function LiveSyncIndicator({
           {hasActiveJobs ? (
             <span className="text-cyan-400 flex items-center gap-1.5 font-semibold">
               <Loader2 className="w-3 h-3 animate-spin inline shrink-0" />
-              <span>Memproses Antrean (3s)</span>
+              <span>{isSseConnected ? "Memproses (Real-Time SSE)" : "Memproses Antrean (3s)"}</span>
             </span>
           ) : isLive ? (
             <span className="text-zinc-400">
-              Live updates <span className="hidden sm:inline">· {timeAgo}</span>
+              {isSseConnected ? "Real-time SSE" : "Live updates"} <span className="hidden sm:inline">· {timeAgo}</span>
             </span>
+          ) : connectionMode === "offline" ? (
+            <span className="text-amber-500/80">Offline</span>
           ) : (
             <span className="text-zinc-500">Live jeda</span>
           )}

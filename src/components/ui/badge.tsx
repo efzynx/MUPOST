@@ -23,7 +23,7 @@ export function Badge({ className, variant = "default", ...props }: BadgeProps) 
     scheduled: "bg-amber-950/60 text-amber-400 border-amber-800/60",
     failed: "bg-red-950/60 text-red-400 border-red-800/60",
     reauth: cn("bg-orange-950/60", "text-orange-400", "border-orange-800/60"),
-    publishing: "bg-cyan-950/70 text-cyan-300 border-cyan-700/70 shadow-sm shadow-cyan-950/50",
+    publishing: "bg-sky-950/60 text-sky-400 border-sky-800/60 animate-pulse",
     queued: "bg-indigo-950/70 text-indigo-300 border-indigo-700/70 shadow-sm shadow-indigo-950/50",
   };
 

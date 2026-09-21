@@ -34,7 +34,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { useOnlineStatus } from "@/components/OfflineBanner";
-import { useSmartPolling, useStatusTracker } from "@/lib/hooks/use-smart-polling";
+import { usePostRealtime, useStatusTracker, type PostStatusEvent } from "@/lib/hooks/use-post-realtime";
 import { LiveSyncIndicator, TransitionToastList } from "@/components/ui/live-sync-indicator";
 import { cn } from "@/lib/utils";
 
@@ -114,8 +114,8 @@ function getStatusBadge(status: string) {
     case "PUBLISHING":
       return (
         <Badge variant="publishing" className="gap-1.5">
-          <Loader2 className="w-3 h-3 animate-spin text-cyan-300" />
-          Mempublikasikan
+          <Loader2 className="w-3 h-3 animate-spin text-sky-400" />
+          Memproses
         </Badge>
       );
     case "PUBLISHED":
@@ -230,7 +230,53 @@ function PostsListContent() {
   // Status transition tracking for real-time visual feedback
   const { transitioningIds, recentNotifications, dismissNotification } = useStatusTracker(posts);
 
-  // Smart polling setup: poll every 3s if any post is active/queued/publishing, else every 15s
+  // Handle immediate state update from real-time events (SSE / PubSub)
+  const handlePostStatusChange = useCallback(
+    (event: PostStatusEvent) => {
+      setPosts((prevPosts) => {
+        const idx = prevPosts.findIndex((p) => p.id === event.postId);
+        if (idx === -1) {
+          // Jika post baru atau belum ada di list saat ini, pemicu re-fetch santai
+          loadPosts(true);
+          return prevPosts;
+        }
+
+        const updated = [...prevPosts];
+        const existing = updated[idx];
+        if (!existing) return prevPosts;
+
+        updated[idx] = {
+          ...existing,
+          status: event.status,
+          publishedAt: event.publishedAt ? String(event.publishedAt) : existing.publishedAt,
+          scheduledAt: event.scheduledAt ? String(event.scheduledAt) : existing.scheduledAt,
+          targets: event.targets
+            ? existing.targets.map((target) => {
+                const matchingTarget = event.targets?.find(
+                  (t) => t.id === target.id || t.platform === target.platform
+                );
+                if (matchingTarget) {
+                  return {
+                    ...target,
+                    status: matchingTarget.status,
+                    errorCode: matchingTarget.errorCode ?? target.errorCode,
+                    errorMessage: matchingTarget.errorMessage ?? target.errorMessage,
+                    publishedAt: matchingTarget.publishedAt
+                      ? String(matchingTarget.publishedAt)
+                      : target.publishedAt,
+                  };
+                }
+                return target;
+              })
+            : existing.targets,
+        };
+        return updated;
+      });
+    },
+    [loadPosts]
+  );
+
+  // Check if any post is actively queued or publishing
   const hasActivePosts = posts.some(
     (p) =>
       p.status === "QUEUED" ||
@@ -238,15 +284,15 @@ function PostsListContent() {
       p.targets.some((t) => t.status === "PENDING")
   );
 
-  const { isRefreshing, lastUpdated, isLive, refresh } = useSmartPolling(
-    () => loadPosts(true),
-    hasActivePosts,
-    {
+  const { isRefreshing, lastUpdated, isLive, isSseConnected, connectionMode, refresh } =
+    usePostRealtime({
+      onStatusChange: handlePostStatusChange,
+      onReconcile: () => loadPosts(true),
+      hasActiveJobs: hasActivePosts,
+      enabled: isOnline,
       activeInterval: 3000,
       idleInterval: 15000,
-      enabled: isOnline,
-    }
-  );
+    });
 
   // Filter toggles
   const toggleStatus = (s: StatusFilter) => {
@@ -361,6 +407,8 @@ function PostsListContent() {
             isRefreshing={isRefreshing}
             lastUpdated={lastUpdated}
             hasActiveJobs={hasActivePosts}
+            isSseConnected={isSseConnected}
+            connectionMode={connectionMode}
             onRefresh={refresh}
           />
         </div>

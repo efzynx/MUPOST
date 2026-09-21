@@ -39,12 +39,20 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       .groupBy(posts.status);
 
     type CountStatus =
-      "TOTAL" | "PUBLISHED" | "SCHEDULED" | "QUEUED" | "DRAFT" | "FAILED" | "PARTIAL";
+      | "TOTAL"
+      | "PUBLISHED"
+      | "SCHEDULED"
+      | "QUEUED"
+      | "PUBLISHING"
+      | "DRAFT"
+      | "FAILED"
+      | "PARTIAL";
     const counts: Record<CountStatus, number> = {
       TOTAL: 0,
       PUBLISHED: 0,
       SCHEDULED: 0,
       QUEUED: 0,
+      PUBLISHING: 0,
       DRAFT: 0,
       FAILED: 0,
       PARTIAL: 0,
@@ -93,9 +101,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           stats: {
             totalPosts: counts.TOTAL,
             publishedPosts: counts.PUBLISHED,
-            scheduledPosts: counts.SCHEDULED + counts.QUEUED,
+            scheduledPosts: counts.SCHEDULED + counts.QUEUED + counts.PUBLISHING,
             draftPosts: counts.DRAFT,
             failedPosts: counts.FAILED + counts.PARTIAL,
+            publishingPosts: counts.PUBLISHING,
+            queuedPosts: counts.QUEUED,
             platformDistribution,
           },
           recentPosts,
