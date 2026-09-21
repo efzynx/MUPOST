@@ -13,6 +13,7 @@ import {
   TikTokLogo,
   ThreadsLogo,
 } from "@/components/ui/platform-icons";
+import { DeletePostModal } from "@/components/posts/delete-post-modal";
 import {
   ArrowLeft,
   Save,
@@ -49,6 +50,7 @@ interface PostTarget {
   errorMessage: string | null;
   retryCount: number;
   accountName?: string;
+  platformPostId?: string | null;
 }
 
 interface PostData {
@@ -88,6 +90,7 @@ export default function EditPostPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(
     null
   );
@@ -274,14 +277,8 @@ export default function EditPostPage() {
   };
 
   // Delete
-  const handleDelete = async () => {
-    if (!window.confirm("Hapus post ini secara permanen?")) return;
-    try {
-      const res = await apiFetch(`/api/posts/${postId}`, { method: "DELETE" });
-      if (res.ok) router.push("/posts");
-    } catch {
-      setFeedback({ type: "error", message: "Gagal menghapus post." });
-    }
+  const handleDelete = () => {
+    setIsDeleteDialogOpen(true);
   };
 
   const getPlatformIcon = (platform: ConnectedAccount["platform"]) => {
@@ -642,6 +639,27 @@ export default function EditPostPage() {
           />
         </div>
       </div>
+
+      {/* Modal Konfirmasi Hapus Postingan */}
+      {post && (
+        <DeletePostModal
+          isOpen={isDeleteDialogOpen}
+          onClose={() => setIsDeleteDialogOpen(false)}
+          post={{
+            ...post,
+            targets: post.targets.map((t) => {
+              const acc = accounts.find((a) => a.id === t.connectedAccountId);
+              return {
+                ...t,
+                accountName: t.accountName || acc?.accountName,
+              };
+            }),
+          }}
+          onSuccess={() => {
+            router.push("/posts");
+          }}
+        />
+      )}
     </div>
   );
 }

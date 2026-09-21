@@ -12,6 +12,8 @@ import {
   TikTokLogo,
   ThreadsLogo,
 } from "@/components/ui/platform-icons";
+import { DeletePostModal, type DeletePostApiResponse } from "@/components/posts/delete-post-modal";
+import { formatDeleteFeedbackMessage } from "@/lib/services/post-delete-helpers";
 import {
   Plus,
   Filter,
@@ -32,6 +34,7 @@ import {
   Loader2,
   CheckCircle2,
   AlertCircle,
+  Info,
 } from "lucide-react";
 import { useOnlineStatus } from "@/components/OfflineBanner";
 import { usePostRealtime, useStatusTracker, type PostStatusEvent } from "@/lib/hooks/use-post-realtime";
@@ -193,6 +196,11 @@ function PostsListContent() {
   // Action states
   const [actionId, setActionId] = useState<string | null>(null);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [postToDelete, setPostToDelete] = useState<PostItem | null>(null);
+  const [feedback, setFeedback] = useState<{
+    type: "success" | "error" | "info";
+    message: string;
+  } | null>(null);
 
   const isInitialLoadRef = useRef(true);
 
@@ -314,19 +322,14 @@ function PostsListContent() {
   const hasActiveFilters = statusFilters.length > 0 || platformFilters.length > 0;
 
   // Actions
-  const handleDelete = async (postId: string) => {
-    if (!window.confirm("Hapus post ini?")) return;
-    setActionId(postId);
-    try {
-      const res = await apiFetch(`/api/posts/${postId}`, { method: "DELETE" });
-      if (res.ok) {
-        setPosts((prev) => prev.filter((p) => p.id !== postId));
-        setTotal((prev) => prev - 1);
-      }
-    } finally {
-      setActionId(null);
-      setActiveMenuId(null);
-    }
+  const handleDeleteSuccess = (result: DeletePostApiResponse, deletedPost: PostItem) => {
+    setPosts((prev) => prev.filter((p) => p.id !== deletedPost.id));
+    setTotal((prev) => Math.max(0, prev - 1));
+    const feedbackMsg = formatDeleteFeedbackMessage({
+      deleteOnPlatforms: Boolean(result.platformResults && result.platformResults.length > 0),
+      platformResults: result.platformResults,
+    });
+    setFeedback(feedbackMsg);
   };
 
   const handlePublish = async (postId: string) => {
@@ -458,6 +461,35 @@ function PostsListContent() {
           </Button>
         </div>
       </div>
+
+      {/* Feedback Banner */}
+      {feedback && (
+        <div
+          className={`flex items-start gap-3 p-4 rounded-xl border text-xs ${
+            feedback.type === "success"
+              ? "bg-emerald-950/40 border-emerald-800/60 text-emerald-300"
+              : feedback.type === "info"
+              ? "bg-indigo-950/40 border-indigo-800/60 text-indigo-300"
+              : "bg-red-950/40 border-red-800/60 text-red-300"
+          }`}
+        >
+          {feedback.type === "success" ? (
+            <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+          ) : feedback.type === "info" ? (
+            <Info className="w-4 h-4 shrink-0 mt-0.5" />
+          ) : (
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+          )}
+          <span className="flex-1 font-medium">{feedback.message}</span>
+          <button
+            onClick={() => setFeedback(null)}
+            className="text-zinc-400 hover:text-zinc-200"
+            aria-label="Tutup notifikasi"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Filter Panel */}
       {showFilters && (
@@ -727,7 +759,10 @@ function PostsListContent() {
                             <div className="border-t border-zinc-800 my-1" />
                             <button
                               type="button"
-                              onClick={() => handleDelete(post.id)}
+                              onClick={() => {
+                                setActiveMenuId(null);
+                                setPostToDelete(post);
+                              }}
                               disabled={actionId === post.id || !isOnline}
                               title={!isOnline ? OFFLINE_TOOLTIP : undefined}
                               className="w-full min-h-[44px] px-4 py-2 text-left hover:bg-red-950/50 active:bg-red-900/60 text-red-400 flex items-center gap-2.5 transition-colors touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed"
@@ -776,6 +811,16 @@ function PostsListContent() {
           )}
         </div>
       )}
+
+      {/* Modal Konfirmasi Hapus Postingan */}
+      <DeletePostModal
+        isOpen={Boolean(postToDelete)}
+        onClose={() => setPostToDelete(null)}
+        post={postToDelete}
+        onSuccess={(result, deletedPost) => {
+          handleDeleteSuccess(result, deletedPost as PostItem);
+        }}
+      />
     </div>
   );
 }
