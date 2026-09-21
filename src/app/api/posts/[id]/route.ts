@@ -127,8 +127,30 @@ export async function DELETE(request: NextRequest, { params }: RouteParams): Pro
   }
 
   try {
-    await postManager.deletePost(user.id, id);
-    return NextResponse.json({ success: true }, { status: 200 });
+    const searchParams = request.nextUrl.searchParams;
+    const deleteOnPlatformsParam = searchParams.get("deleteOnPlatforms");
+    const syncDeleteParam = searchParams.get("syncDelete");
+    let deleteOnPlatforms =
+      deleteOnPlatformsParam === "true" ||
+      deleteOnPlatformsParam === "1" ||
+      syncDeleteParam === "true" ||
+      syncDeleteParam === "1";
+
+    if (!deleteOnPlatforms && request.headers.get("content-type")?.includes("application/json")) {
+      try {
+        const body = await request.json();
+        if (body?.deleteOnPlatforms !== undefined) {
+          deleteOnPlatforms = Boolean(body.deleteOnPlatforms);
+        } else if (body?.syncDelete !== undefined) {
+          deleteOnPlatforms = Boolean(body.syncDelete);
+        }
+      } catch {
+        // Abaikan jika body kosong / bukan json
+      }
+    }
+
+    const deleteResult = await postManager.deletePost(user.id, id, { deleteOnPlatforms });
+    return NextResponse.json(deleteResult, { status: 200 });
   } catch (err) {
     if (err instanceof PostManagerError) {
       return NextResponse.json(
