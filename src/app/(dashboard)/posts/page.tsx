@@ -114,8 +114,8 @@ function getStatusBadge(status: string) {
     case "PUBLISHING":
       return (
         <Badge variant="publishing" className="gap-1.5">
-          <Loader2 className="w-3 h-3 animate-spin text-cyan-300" />
-          Mempublikasikan
+          <Loader2 className="w-3 h-3 animate-spin text-sky-400" />
+          Memproses
         </Badge>
       );
     case "PUBLISHED":
@@ -137,6 +137,7 @@ function getStatusBadge(status: string) {
     default:
       return <Badge variant="outline">{status}</Badge>;
   }
+}
 }
 
 function getPlatformIcon(platform: PostTarget["platform"], size = "w-4 h-4") {

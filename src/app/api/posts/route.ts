@@ -30,18 +30,20 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   // Parse filters
   const statusParam = searchParams.get("status");
   const platformParam = searchParams.get("platform");
+  const idsParam = searchParams.get("ids");
   const pageParam = searchParams.get("page");
 
   const status = statusParam ? (statusParam.split(",").filter(Boolean) as PostStatus[]) : undefined;
   const platform = platformParam
     ? (platformParam.split(",").filter(Boolean) as PlatformType[])
     : undefined;
+  const ids = idsParam ? idsParam.split(",").filter(Boolean) : undefined;
   const page = pageParam ? parseInt(pageParam, 10) : 1;
 
   try {
     const result = await postManager.listPosts(
       user.id,
-      { status, platform },
+      { status, platform, ids },
       { page: isNaN(page) ? 1 : page }
     );
 
