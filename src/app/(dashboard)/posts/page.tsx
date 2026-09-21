@@ -37,7 +37,11 @@ import {
   Info,
 } from "lucide-react";
 import { useOnlineStatus } from "@/components/OfflineBanner";
-import { usePostRealtime, useStatusTracker, type PostStatusEvent } from "@/lib/hooks/use-post-realtime";
+import {
+  usePostRealtime,
+  useStatusTracker,
+  type PostStatusEvent,
+} from "@/lib/hooks/use-post-realtime";
 import { LiveSyncIndicator, TransitionToastList } from "@/components/ui/live-sync-indicator";
 import { cn } from "@/lib/utils";
 
@@ -62,7 +66,8 @@ interface PostItem {
   id: string;
   textContent: string;
   mediaUrls: string[] | null;
-  status: "DRAFT" | "SCHEDULED" | "QUEUED" | "PUBLISHING" | "PUBLISHED" | "PARTIAL" | "FAILED" | string;
+  status:
+    "DRAFT" | "SCHEDULED" | "QUEUED" | "PUBLISHING" | "PUBLISHED" | "PARTIAL" | "FAILED" | string;
   scheduledAt: string | null;
   publishedAt: string | null;
   createdAt: string;
@@ -204,32 +209,35 @@ function PostsListContent() {
 
   const isInitialLoadRef = useRef(true);
 
-  const loadPosts = useCallback(async (silent = false) => {
-    if (!silent && isInitialLoadRef.current) {
-      setIsLoading(true);
-    }
-    try {
-      const params = new URLSearchParams();
-      if (statusFilters.length > 0) params.set("status", statusFilters.join(","));
-      if (platformFilters.length > 0) params.set("platform", platformFilters.join(","));
-      params.set("page", String(page));
+  const loadPosts = useCallback(
+    async (silent = false) => {
+      if (!silent && isInitialLoadRef.current) {
+        setIsLoading(true);
+      }
+      try {
+        const params = new URLSearchParams();
+        if (statusFilters.length > 0) params.set("status", statusFilters.join(","));
+        if (platformFilters.length > 0) params.set("platform", platformFilters.join(","));
+        params.set("page", String(page));
 
-      const res = await apiFetch<ListResponse["data"]>(`/api/posts?${params.toString()}`);
-      if (res.ok && res.data) {
-        const data = (res.data as unknown as ListResponse).data ?? res.data;
-        setPosts(data.posts ?? []);
-        setTotal(data.total ?? 0);
-        setTotalPages(data.totalPages ?? 0);
+        const res = await apiFetch<ListResponse["data"]>(`/api/posts?${params.toString()}`);
+        if (res.ok && res.data) {
+          const data = (res.data as unknown as ListResponse).data ?? res.data;
+          setPosts(data.posts ?? []);
+          setTotal(data.total ?? 0);
+          setTotalPages(data.totalPages ?? 0);
+        }
+      } catch {
+        // Fallback
+      } finally {
+        isInitialLoadRef.current = false;
+        if (!silent) {
+          setIsLoading(false);
+        }
       }
-    } catch {
-      // Fallback
-    } finally {
-      isInitialLoadRef.current = false;
-      if (!silent) {
-        setIsLoading(false);
-      }
-    }
-  }, [statusFilters, platformFilters, page]);
+    },
+    [statusFilters, platformFilters, page]
+  );
 
   useEffect(() => {
     loadPosts(false);
@@ -337,9 +345,7 @@ function PostsListContent() {
     setActionId(postId);
     try {
       // Optimistic update status to QUEUED
-      setPosts((prev) =>
-        prev.map((p) => (p.id === postId ? { ...p, status: "QUEUED" } : p))
-      );
+      setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, status: "QUEUED" } : p)));
       const res = await apiFetch(`/api/posts/${postId}/publish`, { method: "POST" });
       if (res.ok) {
         await loadPosts(true);
@@ -354,9 +360,7 @@ function PostsListContent() {
     setActionId(postId);
     try {
       // Optimistic update status to QUEUED
-      setPosts((prev) =>
-        prev.map((p) => (p.id === postId ? { ...p, status: "QUEUED" } : p))
-      );
+      setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, status: "QUEUED" } : p)));
       const res = await apiFetch(`/api/posts/${postId}/retry`, { method: "POST" });
       if (res.ok) {
         await loadPosts(true);
@@ -390,10 +394,7 @@ function PostsListContent() {
   return (
     <div className="space-y-6">
       {/* Real-time Status Notifications Toast */}
-      <TransitionToastList
-        notifications={recentNotifications}
-        onDismiss={dismissNotification}
-      />
+      <TransitionToastList notifications={recentNotifications} onDismiss={dismissNotification} />
 
       {/* Header */}
       <div className="flex flex-col gap-4 pb-5 border-b border-zinc-800/80">
@@ -469,8 +470,8 @@ function PostsListContent() {
             feedback.type === "success"
               ? "bg-emerald-950/40 border-emerald-800/60 text-emerald-300"
               : feedback.type === "info"
-              ? "bg-indigo-950/40 border-indigo-800/60 text-indigo-300"
-              : "bg-red-950/40 border-red-800/60 text-red-300"
+                ? "bg-indigo-950/40 border-indigo-800/60 text-indigo-300"
+                : "bg-red-950/40 border-red-800/60 text-red-300"
           }`}
         >
           {feedback.type === "success" ? (
@@ -510,7 +511,9 @@ function PostsListContent() {
 
             {/* Status filters */}
             <div>
-              <span className="text-[11px] text-zinc-500 font-medium block mb-1.5">Status Post</span>
+              <span className="text-[11px] text-zinc-500 font-medium block mb-1.5">
+                Status Post
+              </span>
               <div className="flex flex-wrap gap-2">
                 {STATUS_OPTIONS.map((opt) => (
                   <button
@@ -532,7 +535,9 @@ function PostsListContent() {
 
             {/* Platform filters */}
             <div>
-              <span className="text-[11px] text-zinc-500 font-medium block mb-1.5">Platform Media Sosial</span>
+              <span className="text-[11px] text-zinc-500 font-medium block mb-1.5">
+                Platform Media Sosial
+              </span>
               <div className="flex flex-wrap gap-2">
                 {PLATFORM_OPTIONS.map((opt) => (
                   <button
@@ -609,7 +614,9 @@ function PostsListContent() {
                     !isJustPublished &&
                     !isJustFailed &&
                     "ring-2 ring-cyan-500/70 bg-cyan-950/20 shadow-lg shadow-cyan-950/30 border-cyan-500/40",
-                  !isTransitioning && isProcessing && "border-indigo-800/80 bg-zinc-900/50 shadow-sm",
+                  !isTransitioning &&
+                    isProcessing &&
+                    "border-indigo-800/80 bg-zinc-900/50 shadow-sm",
                   !isTransitioning && !isProcessing && "border-zinc-800/80 bg-zinc-900/40",
                   isOnline ? "hover:border-zinc-700/80 cursor-pointer" : "cursor-default opacity-90"
                 )}

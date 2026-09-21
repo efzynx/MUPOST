@@ -472,7 +472,9 @@ describe("QC Validation: End-to-End & Edge Cases for Post Deletion", () => {
       mockedDb.select.mockReturnValueOnce({
         from: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
-        limit: jest.fn().mockResolvedValue([{ id: "post-acc-missing", userId: "user-1", status: "PUBLISHED" }]),
+        limit: jest
+          .fn()
+          .mockResolvedValue([{ id: "post-acc-missing", userId: "user-1", status: "PUBLISHED" }]),
       });
 
       mockedDb.select.mockReturnValueOnce({
@@ -520,7 +522,9 @@ describe("QC Validation: End-to-End & Edge Cases for Post Deletion", () => {
       mockedDb.select.mockReturnValueOnce({
         from: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
-        limit: jest.fn().mockResolvedValue([{ id: "post-decrypt-err", userId: "user-1", status: "PUBLISHED" }]),
+        limit: jest
+          .fn()
+          .mockResolvedValue([{ id: "post-decrypt-err", userId: "user-1", status: "PUBLISHED" }]),
       });
 
       mockedDb.select.mockReturnValueOnce({
@@ -539,9 +543,11 @@ describe("QC Validation: End-to-End & Edge Cases for Post Deletion", () => {
 
       mockedDb.select.mockReturnValueOnce({
         from: jest.fn().mockReturnThis(),
-        where: jest.fn().mockResolvedValue([
-          { id: "acc-corrupt", platform: "META_PAGE", accessTokenEnc: "corrupted-payload" },
-        ]),
+        where: jest
+          .fn()
+          .mockResolvedValue([
+            { id: "acc-corrupt", platform: "META_PAGE", accessTokenEnc: "corrupted-payload" },
+          ]),
       });
 
       jest.spyOn(cryptoModule, "decrypt").mockImplementationOnce(() => {
@@ -583,9 +589,11 @@ describe("QC Validation: End-to-End & Edge Cases for Post Deletion", () => {
       mockedDb.select.mockReturnValueOnce({
         from: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
-        limit: jest.fn().mockResolvedValue([
-          { id: "post-sched-delayed", userId: "user-1", status: "SCHEDULED", meta: {} },
-        ]),
+        limit: jest
+          .fn()
+          .mockResolvedValue([
+            { id: "post-sched-delayed", userId: "user-1", status: "SCHEDULED", meta: {} },
+          ]),
       });
 
       mockedDb.select.mockReturnValueOnce({
@@ -616,7 +624,12 @@ describe("QC Validation: End-to-End & Edge Cases for Post Deletion", () => {
         from: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
         limit: jest.fn().mockResolvedValue([
-          { id: "post-fallback-job", userId: "user-1", status: "SCHEDULED", meta: { bullmq_job_id: "bull-job-fb" } },
+          {
+            id: "post-fallback-job",
+            userId: "user-1",
+            status: "SCHEDULED",
+            meta: { bullmq_job_id: "bull-job-fb" },
+          },
         ]),
       });
 
@@ -640,7 +653,9 @@ describe("QC Validation: End-to-End & Edge Cases for Post Deletion", () => {
       mockedDb.select.mockReturnValueOnce({
         from: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
-        limit: jest.fn().mockResolvedValue([{ id: "post-draft-targets", userId: "user-1", status: "DRAFT" }]),
+        limit: jest
+          .fn()
+          .mockResolvedValue([{ id: "post-draft-targets", userId: "user-1", status: "DRAFT" }]),
       });
 
       mockedDb.select.mockReturnValueOnce({
@@ -674,7 +689,9 @@ describe("QC Validation: End-to-End & Edge Cases for Post Deletion", () => {
       mockedDb.select.mockReturnValueOnce({
         from: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
-        limit: jest.fn().mockResolvedValue([{ id: "post-disappeared", userId: "user-1", status: "DRAFT" }]),
+        limit: jest
+          .fn()
+          .mockResolvedValue([{ id: "post-disappeared", userId: "user-1", status: "DRAFT" }]),
       });
 
       mockedDb.select.mockReturnValueOnce({
@@ -688,9 +705,9 @@ describe("QC Validation: End-to-End & Edge Cases for Post Deletion", () => {
         returning: jest.fn().mockResolvedValue([]),
       });
 
-      await expect(
-        postManager.deletePost("user-1", "post-disappeared")
-      ).rejects.toThrow(new PostManagerError("NOT_FOUND", 404, "Post tidak ditemukan."));
+      await expect(postManager.deletePost("user-1", "post-disappeared")).rejects.toThrow(
+        new PostManagerError("NOT_FOUND", 404, "Post tidak ditemukan.")
+      );
     });
 
     it("Scenario: BullMQ queue failure does not block post deletion", async () => {
@@ -702,7 +719,12 @@ describe("QC Validation: End-to-End & Edge Cases for Post Deletion", () => {
         from: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
         limit: jest.fn().mockResolvedValue([
-          { id: "post-queue-down", userId: "user-1", status: "SCHEDULED", meta: { bullmq_job_id: "job-99" } },
+          {
+            id: "post-queue-down",
+            userId: "user-1",
+            status: "SCHEDULED",
+            meta: { bullmq_job_id: "job-99" },
+          },
         ]),
       });
 
@@ -735,7 +757,9 @@ describe("QC Validation: End-to-End & Edge Cases for Post Deletion", () => {
       mockedDb.select.mockReturnValueOnce({
         from: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
-        limit: jest.fn().mockResolvedValue([{ id: "post-sync-alias", userId: "user-1", status: "PUBLISHED" }]),
+        limit: jest
+          .fn()
+          .mockResolvedValue([{ id: "post-sync-alias", userId: "user-1", status: "PUBLISHED" }]),
       });
 
       mockedDb.select.mockReturnValueOnce({
@@ -754,9 +778,11 @@ describe("QC Validation: End-to-End & Edge Cases for Post Deletion", () => {
 
       mockedDb.select.mockReturnValueOnce({
         from: jest.fn().mockReturnThis(),
-        where: jest.fn().mockResolvedValue([
-          { id: "acc-sync", platform: "META_PAGE", accessTokenEnc: "enc-sync" },
-        ]),
+        where: jest
+          .fn()
+          .mockResolvedValue([
+            { id: "acc-sync", platform: "META_PAGE", accessTokenEnc: "enc-sync" },
+          ]),
       });
 
       mockedDb.delete.mockReturnValueOnce({
@@ -781,7 +807,9 @@ describe("QC Validation: End-to-End & Edge Cases for Post Deletion", () => {
       mockedDb.select.mockReturnValueOnce({
         from: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
-        limit: jest.fn().mockResolvedValue([{ id: "post-exc", userId: "user-1", status: "PUBLISHED" }]),
+        limit: jest
+          .fn()
+          .mockResolvedValue([{ id: "post-exc", userId: "user-1", status: "PUBLISHED" }]),
       });
 
       mockedDb.select.mockReturnValueOnce({
@@ -800,9 +828,9 @@ describe("QC Validation: End-to-End & Edge Cases for Post Deletion", () => {
 
       mockedDb.select.mockReturnValueOnce({
         from: jest.fn().mockReturnThis(),
-        where: jest.fn().mockResolvedValue([
-          { id: "acc-exc", platform: "META_PAGE", accessTokenEnc: "enc-exc" },
-        ]),
+        where: jest
+          .fn()
+          .mockResolvedValue([{ id: "acc-exc", platform: "META_PAGE", accessTokenEnc: "enc-exc" }]),
       });
 
       mockedDb.delete.mockReturnValueOnce({
@@ -823,7 +851,9 @@ describe("QC Validation: End-to-End & Edge Cases for Post Deletion", () => {
       mockedDb.select.mockReturnValueOnce({
         from: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
-        limit: jest.fn().mockResolvedValue([{ id: "post-settle-rej", userId: "user-1", status: "PUBLISHED" }]),
+        limit: jest
+          .fn()
+          .mockResolvedValue([{ id: "post-settle-rej", userId: "user-1", status: "PUBLISHED" }]),
       });
 
       mockedDb.select.mockReturnValueOnce({
@@ -842,9 +872,9 @@ describe("QC Validation: End-to-End & Edge Cases for Post Deletion", () => {
 
       mockedDb.select.mockReturnValueOnce({
         from: jest.fn().mockReturnThis(),
-        where: jest.fn().mockResolvedValue([
-          { id: "acc-rej", platform: "META_PAGE", accessTokenEnc: "enc-rej" },
-        ]),
+        where: jest
+          .fn()
+          .mockResolvedValue([{ id: "acc-rej", platform: "META_PAGE", accessTokenEnc: "enc-rej" }]),
       });
 
       mockedDb.delete.mockReturnValueOnce({
@@ -911,7 +941,9 @@ describe("QC Validation: End-to-End & Edge Cases for Post Deletion", () => {
 
     it("should return 500 INTERNAL if deletePost throws an unexpected error", async () => {
       (authService.validateSession as jest.Mock).mockResolvedValueOnce({ id: "user-1" });
-      jest.spyOn(PostManager.prototype, "deletePost").mockRejectedValueOnce(new Error("Unexpected DB crash"));
+      jest
+        .spyOn(PostManager.prototype, "deletePost")
+        .mockRejectedValueOnce(new Error("Unexpected DB crash"));
 
       const req = new NextRequest("http://localhost:3000/api/posts/p-crash", {
         method: "DELETE",

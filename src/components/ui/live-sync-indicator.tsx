@@ -85,7 +85,8 @@ export function LiveSyncIndicator({
             </span>
           ) : isLive ? (
             <span className="text-zinc-400">
-              {isSseConnected ? "Real-time SSE" : "Live updates"} <span className="hidden sm:inline">· {timeAgo}</span>
+              {isSseConnected ? "Real-time SSE" : "Live updates"}{" "}
+              <span className="hidden sm:inline">· {timeAgo}</span>
             </span>
           ) : connectionMode === "offline" ? (
             <span className="text-amber-500/80">Offline</span>
@@ -106,9 +107,7 @@ export function LiveSyncIndicator({
         )}
         title="Segarkan status secara manual"
       >
-        <RefreshCw
-          className={cn("w-3.5 h-3.5", isRefreshing && "animate-spin text-cyan-400")}
-        />
+        <RefreshCw className={cn("w-3.5 h-3.5", isRefreshing && "animate-spin text-cyan-400")} />
         <span className="sr-only">Segarkan</span>
       </button>
     </div>
@@ -139,17 +138,23 @@ export function TransitionToastList({ notifications, onDismiss }: TransitionToas
             key={`${n.postId}-${n.timestamp}`}
             className={cn(
               "pointer-events-auto p-3.5 rounded-xl border shadow-xl backdrop-blur-md transition-all duration-300 animate-in fade-in slide-in-from-bottom-3 flex items-start gap-3 text-xs",
-              isSuccess && "bg-zinc-950/95 border-emerald-500/50 text-emerald-300 shadow-emerald-950/30",
+              isSuccess &&
+                "bg-zinc-950/95 border-emerald-500/50 text-emerald-300 shadow-emerald-950/30",
               isFailed && "bg-zinc-950/95 border-red-500/50 text-red-300 shadow-red-950/30",
               isProcessing && "bg-zinc-950/95 border-cyan-500/50 text-cyan-300 shadow-cyan-950/30",
-              !isSuccess && !isFailed && !isProcessing && "bg-zinc-950/95 border-zinc-700 text-zinc-300"
+              !isSuccess &&
+                !isFailed &&
+                !isProcessing &&
+                "bg-zinc-950/95 border-zinc-700 text-zinc-300"
             )}
           >
             <div className="mt-0.5 shrink-0">
               {isSuccess && <CheckCircle2 className="w-4 h-4 text-emerald-400" />}
               {isFailed && <AlertCircle className="w-4 h-4 text-red-400" />}
               {isProcessing && <Loader2 className="w-4 h-4 text-cyan-400 animate-spin" />}
-              {!isSuccess && !isFailed && !isProcessing && <Radio className="w-4 h-4 text-zinc-400" />}
+              {!isSuccess && !isFailed && !isProcessing && (
+                <Radio className="w-4 h-4 text-zinc-400" />
+              )}
             </div>
 
             <div className="flex-1 min-w-0">
@@ -157,14 +162,12 @@ export function TransitionToastList({ notifications, onDismiss }: TransitionToas
                 {isSuccess
                   ? "Postingan Terpublikasi!"
                   : isFailed
-                  ? "Gagal Publikasi Postingan"
-                  : isProcessing
-                  ? "Postingan Sedang Diproses"
-                  : `Status Berubah: ${n.newStatus}`}
+                    ? "Gagal Publikasi Postingan"
+                    : isProcessing
+                      ? "Postingan Sedang Diproses"
+                      : `Status Berubah: ${n.newStatus}`}
               </p>
-              <p className="text-zinc-400 line-clamp-1 mt-0.5 text-[11px]">
-                {n.textContent}
-              </p>
+              <p className="text-zinc-400 line-clamp-1 mt-0.5 text-[11px]">{n.textContent}</p>
               <span className="text-[10px] text-zinc-500 mt-1 block">
                 {n.oldStatus} &rarr; {n.newStatus}
               </span>

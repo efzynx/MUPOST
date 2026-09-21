@@ -27,7 +27,11 @@ import {
   Activity,
   Loader2,
 } from "lucide-react";
-import { usePostRealtime, useStatusTracker, type PostStatusEvent } from "@/lib/hooks/use-post-realtime";
+import {
+  usePostRealtime,
+  useStatusTracker,
+  type PostStatusEvent,
+} from "@/lib/hooks/use-post-realtime";
 import { LiveSyncIndicator, TransitionToastList } from "@/components/ui/live-sync-indicator";
 import { cn } from "@/lib/utils";
 
@@ -56,7 +60,8 @@ interface PostItem {
   id: string;
   textContent: string;
   mediaUrls: string[] | null;
-  status: "DRAFT" | "SCHEDULED" | "QUEUED" | "PUBLISHING" | "PUBLISHED" | "PARTIAL" | "FAILED" | string;
+  status:
+    "DRAFT" | "SCHEDULED" | "QUEUED" | "PUBLISHING" | "PUBLISHED" | "PARTIAL" | "FAILED" | string;
   scheduledAt: string | null;
   publishedAt: string | null;
   createdAt: string;
@@ -204,7 +209,8 @@ export default function DashboardPage() {
   const activeAccounts = accounts.filter((a) => a.status === "ACTIVE");
 
   // Track real-time transitions on recent posts
-  const { transitioningIds, recentNotifications, dismissNotification } = useStatusTracker(recentPosts);
+  const { transitioningIds, recentNotifications, dismissNotification } =
+    useStatusTracker(recentPosts);
 
   // Real-time status updates via SSE + Smart Polling fallback
   const handlePostStatusChange = useCallback(
@@ -281,10 +287,7 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       {/* Real-time Status Notifications Toast */}
-      <TransitionToastList
-        notifications={recentNotifications}
-        onDismiss={dismissNotification}
-      />
+      <TransitionToastList notifications={recentNotifications} onDismiss={dismissNotification} />
 
       {/* Header Welcome & Live Sync Indicator */}
       <div className="flex flex-col gap-3 sm:gap-4 pb-5 border-b border-zinc-800/80">
@@ -481,7 +484,11 @@ export default function DashboardPage() {
                 <Card className="p-8 border-zinc-800/80 bg-zinc-900/30 text-center">
                   <p className="text-xs text-zinc-400">Belum ada riwayat postingan.</p>
                   <Link href="/posts/new" className="inline-block mt-3">
-                    <Button variant="primary" size="sm" className="min-h-[42px] px-4 touch-manipulation">
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      className="min-h-[42px] px-4 touch-manipulation"
+                    >
                       Buat Postingan Sekarang
                     </Button>
                   </Link>
@@ -510,7 +517,9 @@ export default function DashboardPage() {
                             !isJustPublished &&
                             !isJustFailed &&
                             "ring-2 ring-cyan-500/70 bg-cyan-950/20 shadow-lg shadow-cyan-950/30 border-cyan-500/40",
-                          !isTransitioning && isProcessing && "border-indigo-800/80 bg-zinc-900/50 shadow-sm",
+                          !isTransitioning &&
+                            isProcessing &&
+                            "border-indigo-800/80 bg-zinc-900/50 shadow-sm",
                           !isTransitioning && !isProcessing && "border-zinc-800/80 bg-zinc-900/40"
                         )}
                       >
@@ -709,7 +718,10 @@ export default function DashboardPage() {
 
             <div className="pt-2">
               <Link href="/settings/connections">
-                <Button variant="primary" className="text-xs gap-2 min-h-[42px] px-4 touch-manipulation">
+                <Button
+                  variant="primary"
+                  className="text-xs gap-2 min-h-[42px] px-4 touch-manipulation"
+                >
                   <Share2 className="w-4 h-4" />
                   Hubungkan Akun Sekarang
                 </Button>

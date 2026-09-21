@@ -34,11 +34,7 @@ export interface PlatformDeleteResultSummary {
 export function hasPublishedTargets(post?: PostWithTargetsSummary | null): boolean {
   if (!post) return false;
   if (post.status === "PUBLISHED" || post.status === "PARTIAL") return true;
-  return Boolean(
-    post.targets?.some(
-      (t) => t.status === "PUBLISHED" || Boolean(t.platformPostId)
-    )
-  );
+  return Boolean(post.targets?.some((t) => t.status === "PUBLISHED" || Boolean(t.platformPostId)));
 }
 
 /**
@@ -46,9 +42,7 @@ export function hasPublishedTargets(post?: PostWithTargetsSummary | null): boole
  */
 export function getPublishedTargets(post?: PostWithTargetsSummary | null): DeleteTargetInfo[] {
   if (!post?.targets) return [];
-  return post.targets.filter(
-    (t) => t.status === "PUBLISHED" || Boolean(t.platformPostId)
-  );
+  return post.targets.filter((t) => t.status === "PUBLISHED" || Boolean(t.platformPostId));
 }
 
 /**
@@ -95,17 +89,23 @@ export function formatDeleteFeedbackMessage(options: {
   const parts: string[] = ["Postingan berhasil dihapus dari Mupost."];
 
   if (successList.length > 0) {
-    const names = Array.from(new Set(successList.map((r) => formatPlatformDisplayName(r.platform))));
+    const names = Array.from(
+      new Set(successList.map((r) => formatPlatformDisplayName(r.platform)))
+    );
     parts.push(`Konten di ${names.join(", ")} berhasil dihapus.`);
   }
 
   if (alreadyDeletedList.length > 0) {
-    const names = Array.from(new Set(alreadyDeletedList.map((r) => formatPlatformDisplayName(r.platform))));
+    const names = Array.from(
+      new Set(alreadyDeletedList.map((r) => formatPlatformDisplayName(r.platform)))
+    );
     parts.push(`Konten di ${names.join(", ")} sudah dihapus sebelumnya dari platform.`);
   }
 
   if (unsupportedList.length > 0) {
-    const names = Array.from(new Set(unsupportedList.map((r) => formatPlatformDisplayName(r.platform))));
+    const names = Array.from(
+      new Set(unsupportedList.map((r) => formatPlatformDisplayName(r.platform)))
+    );
     parts.push(`${names.join(", ")} tidak mendukung penghapusan otomatis via API.`);
   }
 

@@ -190,14 +190,7 @@ export function useSmartPolling(
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
     };
-  }, [
-    enabled,
-    hasActiveJobs,
-    activeInterval,
-    idleInterval,
-    refreshOnFocus,
-    executeRefresh,
-  ]);
+  }, [enabled, hasActiveJobs, activeInterval, idleInterval, refreshOnFocus, executeRefresh]);
 
   return {
     isRefreshing,
@@ -206,4 +199,3 @@ export function useSmartPolling(
     refresh: executeRefresh,
   };
 }
-

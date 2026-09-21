@@ -5,3 +5,5 @@ public/
 .kiro/
 coverage/
 dist/
+drizzle/migrations/meta/
+drizzle/migrations/

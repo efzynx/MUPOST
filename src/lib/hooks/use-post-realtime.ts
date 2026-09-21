@@ -151,7 +151,8 @@ export function usePostRealtime(options: PostRealtimeOptions = {}) {
       return;
     }
 
-    let isTabVisible = typeof document !== "undefined" ? document.visibilityState !== "hidden" : true;
+    let isTabVisible =
+      typeof document !== "undefined" ? document.visibilityState !== "hidden" : true;
     let isOnline = typeof navigator !== "undefined" ? navigator.onLine : true;
 
     // Helper untuk update status koneksi
@@ -240,8 +241,14 @@ export function usePostRealtime(options: PostRealtimeOptions = {}) {
 
       // Jika SSE tersambung, kita gunakan interval rekonsiliasi santai (30s)
       // Jika SSE terputus, kita gunakan polling dinamis: 3s saat ada job aktif, 15s saat idle
-      const sseActive = !!(eventSourceRef.current && eventSourceRef.current.readyState === EventSource.OPEN);
-      const interval = sseActive ? sseReconcileInterval : hasActiveJobs ? activeInterval : idleInterval;
+      const sseActive = !!(
+        eventSourceRef.current && eventSourceRef.current.readyState === EventSource.OPEN
+      );
+      const interval = sseActive
+        ? sseReconcileInterval
+        : hasActiveJobs
+          ? activeInterval
+          : idleInterval;
 
       pollingTimerRef.current = setTimeout(async () => {
         await executeReconcile();
@@ -264,7 +271,9 @@ export function usePostRealtime(options: PostRealtimeOptions = {}) {
         }
 
         // Langsung refresh data jika sudah lebih dari 4 detik
-        const elapsed = lastUpdatedRef.current ? Date.now() - lastUpdatedRef.current.getTime() : Infinity;
+        const elapsed = lastUpdatedRef.current
+          ? Date.now() - lastUpdatedRef.current.getTime()
+          : Infinity;
         if (elapsed > 4000) {
           executeReconcile();
         }
@@ -279,7 +288,9 @@ export function usePostRealtime(options: PostRealtimeOptions = {}) {
 
     const handleWindowFocus = () => {
       if (!refreshOnFocus || !isOnline || !isTabVisible) return;
-      const elapsed = lastUpdatedRef.current ? Date.now() - lastUpdatedRef.current.getTime() : Infinity;
+      const elapsed = lastUpdatedRef.current
+        ? Date.now() - lastUpdatedRef.current.getTime()
+        : Infinity;
       if (elapsed > (hasActiveJobs ? activeInterval : 8000)) {
         executeReconcile();
         scheduleNextPoll();
@@ -339,7 +350,9 @@ export function usePostRealtime(options: PostRealtimeOptions = {}) {
     isSseConnected,
   ]);
 
-  const isLive = connectionMode === "sse" || (connectionMode === "polling" && typeof navigator !== "undefined" && navigator.onLine);
+  const isLive =
+    connectionMode === "sse" ||
+    (connectionMode === "polling" && typeof navigator !== "undefined" && navigator.onLine);
 
   return {
     isLive,
@@ -355,13 +368,13 @@ export function usePostRealtime(options: PostRealtimeOptions = {}) {
  * Hook untuk mendeteksi dan melacak transisi status postingan real-time,
  * serta menyajikan daftar notifikasi toast yang otomatis hilang.
  */
-export function useStatusTracker<
-  T extends { id: string; status: string; textContent?: string }
->(items: T[]) {
+export function useStatusTracker<T extends { id: string; status: string; textContent?: string }>(
+  items: T[]
+) {
   const previousStatusMap = useRef<Map<string, string>>(new Map());
-  const [transitioningIds, setTransitioningIds] = useState<Map<string, { oldStatus: string; newStatus: string }>>(
-    new Map()
-  );
+  const [transitioningIds, setTransitioningIds] = useState<
+    Map<string, { oldStatus: string; newStatus: string }>
+  >(new Map());
   const [recentNotifications, setRecentNotifications] = useState<StatusTransition[]>([]);
 
   useEffect(() => {

@@ -832,141 +832,141 @@ export async function processPublishJob(
 
     const accountsMap = new Map(accounts.map((a) => [a.id, a]));
 
-  // 4. Eksekusi paralel per target
-  const publishPromises = eligibleTargets.map(async (target) => {
-    const account = accountsMap.get(target.connectedAccountId);
-    if (!account) {
+    // 4. Eksekusi paralel per target
+    const publishPromises = eligibleTargets.map(async (target) => {
+      const account = accountsMap.get(target.connectedAccountId);
+      if (!account) {
+        return {
+          targetId: target.id,
+          platform: target.platform,
+          success: false,
+          errorCode: "ACCOUNT_NOT_FOUND",
+          errorMessage: "Akun platform yang terhubung tidak ditemukan.",
+        };
+      }
+
+      if (account.status === "NEEDS_REAUTH") {
+        return {
+          targetId: target.id,
+          platform: target.platform,
+          success: false,
+          errorCode: "TOKEN_EXPIRED",
+          errorMessage: "Akun memerlukan autentikasi ulang.",
+          needsReauth: true,
+        };
+      }
+
+      // Dekripsi token
+      let accessToken: string;
+      try {
+        accessToken = decrypt(account.accessTokenEnc);
+      } catch {
+        return {
+          targetId: target.id,
+          platform: target.platform,
+          success: false,
+          errorCode: "DECRYPT_ERROR",
+          errorMessage: "Gagal mendekripsi token akses akun.",
+        };
+      }
+
+      // Kirim ke platform yang sesuai
+      if (target.platform === "META_PAGE") {
+        return publishToMeta(target.id, post, account, accessToken);
+      } else if (target.platform === "INSTAGRAM") {
+        return publishToInstagram(target.id, post, account, accessToken);
+      } else if (target.platform === "TIKTOK") {
+        return publishToTikTok(target.id, post, account, accessToken);
+      } else if (target.platform === "THREADS") {
+        return publishToThreads(target.id, post, account, accessToken);
+      } else {
+        return {
+          targetId: target.id,
+          platform: target.platform,
+          success: false,
+          errorCode: "UNSUPPORTED_PLATFORM",
+          errorMessage: `Platform ${target.platform} belum didukung untuk publikasi.`,
+        };
+      }
+    });
+
+    const settledResults = await Promise.allSettled(publishPromises);
+
+    const results: PlatformPublishResult[] = settledResults.map((res, index) => {
+      if (res.status === "fulfilled") {
+        return res.value;
+      }
+      const target = eligibleTargets[index]!;
       return {
         targetId: target.id,
         platform: target.platform,
         success: false,
-        errorCode: "ACCOUNT_NOT_FOUND",
-        errorMessage: "Akun platform yang terhubung tidak ditemukan.",
+        errorCode: "UNHANDLED_EXCEPTION",
+        errorMessage: res.reason?.message || "Terjadi kesalahan internal saat publikasi",
       };
-    }
+    });
 
-    if (account.status === "NEEDS_REAUTH") {
-      return {
-        targetId: target.id,
-        platform: target.platform,
-        success: false,
-        errorCode: "TOKEN_EXPIRED",
-        errorMessage: "Akun memerlukan autentikasi ulang.",
-        needsReauth: true,
-      };
-    }
+    // 5. Update status di database
+    const now = new Date();
 
-    // Dekripsi token
-    let accessToken: string;
-    try {
-      accessToken = decrypt(account.accessTokenEnc);
-    } catch {
-      return {
-        targetId: target.id,
-        platform: target.platform,
-        success: false,
-        errorCode: "DECRYPT_ERROR",
-        errorMessage: "Gagal mendekripsi token akses akun.",
-      };
-    }
+    for (const res of results) {
+      const currentTarget = eligibleTargets.find((t) => t.id === res.targetId);
+      const newRetryCount = (currentTarget?.retryCount ?? 0) + (res.success ? 0 : 1);
 
-    // Kirim ke platform yang sesuai
-    if (target.platform === "META_PAGE") {
-      return publishToMeta(target.id, post, account, accessToken);
-    } else if (target.platform === "INSTAGRAM") {
-      return publishToInstagram(target.id, post, account, accessToken);
-    } else if (target.platform === "TIKTOK") {
-      return publishToTikTok(target.id, post, account, accessToken);
-    } else if (target.platform === "THREADS") {
-      return publishToThreads(target.id, post, account, accessToken);
-    } else {
-      return {
-        targetId: target.id,
-        platform: target.platform,
-        success: false,
-        errorCode: "UNSUPPORTED_PLATFORM",
-        errorMessage: `Platform ${target.platform} belum didukung untuk publikasi.`,
-      };
-    }
-  });
-
-  const settledResults = await Promise.allSettled(publishPromises);
-
-  const results: PlatformPublishResult[] = settledResults.map((res, index) => {
-    if (res.status === "fulfilled") {
-      return res.value;
-    }
-    const target = eligibleTargets[index]!;
-    return {
-      targetId: target.id,
-      platform: target.platform,
-      success: false,
-      errorCode: "UNHANDLED_EXCEPTION",
-      errorMessage: res.reason?.message || "Terjadi kesalahan internal saat publikasi",
-    };
-  });
-
-  // 5. Update status di database
-  const now = new Date();
-
-  for (const res of results) {
-    const currentTarget = eligibleTargets.find((t) => t.id === res.targetId);
-    const newRetryCount = (currentTarget?.retryCount ?? 0) + (res.success ? 0 : 1);
-
-    if (res.success) {
-      await db
-        .update(postTargets)
-        .set({
-          status: "PUBLISHED",
-          platformPostId: res.platformPostId,
-          publishedAt: res.publishedAt || now,
-          errorCode: null,
-          errorMessage: null,
-          updatedAt: now,
-        })
-        .where(eq(postTargets.id, res.targetId));
-    } else {
-      await db
-        .update(postTargets)
-        .set({
-          status: "FAILED",
-          errorCode: res.errorCode || "FAILED",
-          errorMessage: res.errorMessage || "Publikasi gagal",
-          retryCount: newRetryCount,
-          updatedAt: now,
-        })
-        .where(eq(postTargets.id, res.targetId));
-
-      // Jika token kedaluwarsa, tandai connected_accounts
-      if (res.needsReauth && currentTarget) {
+      if (res.success) {
         await db
-          .update(connectedAccounts)
-          .set({ status: "NEEDS_REAUTH", updatedAt: now })
-          .where(eq(connectedAccounts.id, currentTarget.connectedAccountId));
+          .update(postTargets)
+          .set({
+            status: "PUBLISHED",
+            platformPostId: res.platformPostId,
+            publishedAt: res.publishedAt || now,
+            errorCode: null,
+            errorMessage: null,
+            updatedAt: now,
+          })
+          .where(eq(postTargets.id, res.targetId));
+      } else {
+        await db
+          .update(postTargets)
+          .set({
+            status: "FAILED",
+            errorCode: res.errorCode || "FAILED",
+            errorMessage: res.errorMessage || "Publikasi gagal",
+            retryCount: newRetryCount,
+            updatedAt: now,
+          })
+          .where(eq(postTargets.id, res.targetId));
+
+        // Jika token kedaluwarsa, tandai connected_accounts
+        if (res.needsReauth && currentTarget) {
+          await db
+            .update(connectedAccounts)
+            .set({ status: "NEEDS_REAUTH", updatedAt: now })
+            .where(eq(connectedAccounts.id, currentTarget.connectedAccountId));
+        }
       }
     }
-  }
 
-  // 6. Hitung status agregat Post
-  const targetStatuses = targets.map((t) => {
-    const res = results.find((r) => r.targetId === t.id);
-    if (res) return res.success ? "PUBLISHED" : "FAILED";
-    return t.status;
-  });
+    // 6. Hitung status agregat Post
+    const targetStatuses = targets.map((t) => {
+      const res = results.find((r) => r.targetId === t.id);
+      if (res) return res.success ? "PUBLISHED" : "FAILED";
+      return t.status;
+    });
 
-  const totalTargets = targetStatuses.length;
-  const publishedCount = targetStatuses.filter((s) => s === "PUBLISHED").length;
-  const failedCount = targetStatuses.filter((s) => s === "FAILED").length;
+    const totalTargets = targetStatuses.length;
+    const publishedCount = targetStatuses.filter((s) => s === "PUBLISHED").length;
+    const failedCount = targetStatuses.filter((s) => s === "FAILED").length;
 
-  let postFinalStatus: "PUBLISHED" | "PARTIAL" | "FAILED";
+    let postFinalStatus: "PUBLISHED" | "PARTIAL" | "FAILED";
 
-  if (publishedCount === totalTargets && totalTargets > 0) {
-    postFinalStatus = "PUBLISHED";
-  } else if (publishedCount > 0 && failedCount > 0) {
-    postFinalStatus = "PARTIAL";
-  } else {
-    postFinalStatus = "FAILED";
-  }
+    if (publishedCount === totalTargets && totalTargets > 0) {
+      postFinalStatus = "PUBLISHED";
+    } else if (publishedCount > 0 && failedCount > 0) {
+      postFinalStatus = "PARTIAL";
+    } else {
+      postFinalStatus = "FAILED";
+    }
 
     const publishedAt = postFinalStatus === "PUBLISHED" ? now : post.publishedAt;
 

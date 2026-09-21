@@ -19,9 +19,7 @@ describe("Live Status Update & Dynamic Polling Logic", () => {
         { id: "3", status: "DRAFT" },
       ];
 
-      const hasActive = posts.some(
-        (p) => p.status === "QUEUED" || p.status === "PUBLISHING"
-      );
+      const hasActive = posts.some((p) => p.status === "QUEUED" || p.status === "PUBLISHING");
       expect(hasActive).toBe(true);
       expect(getDynamicInterval(hasActive)).toBe(3000);
     });
@@ -34,9 +32,7 @@ describe("Live Status Update & Dynamic Polling Logic", () => {
         { id: "4", status: "SCHEDULED" },
       ];
 
-      const hasActive = posts.some(
-        (p) => p.status === "QUEUED" || p.status === "PUBLISHING"
-      );
+      const hasActive = posts.some((p) => p.status === "QUEUED" || p.status === "PUBLISHING");
       expect(hasActive).toBe(false);
       expect(getDynamicInterval(hasActive)).toBe(15000);
     });

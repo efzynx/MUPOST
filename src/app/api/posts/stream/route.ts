@@ -44,9 +44,7 @@ export async function GET(request: NextRequest): Promise<Response> {
 
       const sendEvent = (event: string, data: unknown) => {
         try {
-          controller.enqueue(
-            encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
-          );
+          controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
         } catch {
           // Stream mungkin sudah ditutup oleh klien
         }
@@ -87,7 +85,10 @@ export async function GET(request: NextRequest): Promise<Response> {
         });
       } catch (err: any) {
         // eslint-disable-next-line no-console
-        console.warn("[SSE] Gagal menginisialisasi subscriber Redis, menggunakan fallback lokal:", err?.message || err);
+        console.warn(
+          "[SSE] Gagal menginisialisasi subscriber Redis, menggunakan fallback lokal:",
+          err?.message || err
+        );
       }
 
       // 3. Pasang listener event emitter lokal sebagai fallback (in-process)
