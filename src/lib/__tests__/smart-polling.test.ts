@@ -226,8 +226,8 @@ describe("Live Status Update & Dynamic Polling Logic", () => {
         status: "PUBLISHING",
       });
 
-      expect(updated[0].status).toBe("PUBLISHING");
-      expect(updated[0].targets[0].status).toBe("PENDING");
+      expect(updated[0]!.status).toBe("PUBLISHING");
+      expect(updated[0]!.targets[0]!.status).toBe("PENDING");
     });
 
     it("should update post and all targets upon final PUBLISHED event", () => {
@@ -254,10 +254,10 @@ describe("Live Status Update & Dynamic Polling Logic", () => {
         ],
       });
 
-      expect(updated[0].status).toBe("PUBLISHED");
-      expect(updated[0].publishedAt).toBe(publishTimestamp);
-      expect(updated[0].targets[0].status).toBe("PUBLISHED");
-      expect(updated[0].targets[1].status).toBe("PUBLISHED");
+      expect(updated[0]!.status).toBe("PUBLISHED");
+      expect(updated[0]!.publishedAt).toBe(publishTimestamp);
+      expect(updated[0]!.targets[0]!.status).toBe("PUBLISHED");
+      expect(updated[0]!.targets[1]!.status).toBe("PUBLISHED");
     });
 
     it("should handle partial failures with specific error codes", () => {
@@ -288,11 +288,11 @@ describe("Live Status Update & Dynamic Polling Logic", () => {
         ],
       });
 
-      expect(updated[0].status).toBe("PARTIAL");
-      expect(updated[0].targets[0].status).toBe("PUBLISHED");
-      expect(updated[0].targets[1].status).toBe("FAILED");
-      expect(updated[0].targets[1].errorCode).toBe("NETWORK_ERROR");
-      expect(updated[0].targets[1].errorMessage).toBe("Connection reset");
+      expect(updated[0]!.status).toBe("PARTIAL");
+      expect(updated[0]!.targets[0]!.status).toBe("PUBLISHED");
+      expect(updated[0]!.targets[1]!.status).toBe("FAILED");
+      expect(updated[0]!.targets[1]!.errorCode).toBe("NETWORK_ERROR");
+      expect(updated[0]!.targets[1]!.errorMessage).toBe("Connection reset");
     });
   });
 
