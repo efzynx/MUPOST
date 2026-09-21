@@ -83,8 +83,24 @@ export async function fetchWithTimeout(
 }
 
 // ==========================================
-// Platform Publisher Implementations
+// Platform Publisher & Deletion Implementations
 // ==========================================
+
+export {
+  deleteFromMeta,
+  deleteFromInstagram,
+  deleteFromThreads,
+  deleteFromTikTok,
+  deleteFromPlatform,
+  platformAdapters,
+  metaAdapter,
+  facebookAdapter,
+  instagramAdapter,
+  threadsAdapter,
+  tiktokAdapter,
+  type PlatformDeleteResult,
+  type PlatformAdapter,
+} from "@/lib/services/platform-adapters";
 
 /**
  * Publikasi ke Meta Facebook Page via Meta Graph API v19.0
