@@ -2,7 +2,16 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 export interface BadgeProps extends React.HTMLAttributes<HTMLDivElement> {
-  variant?: "default" | "secondary" | "outline" | "published" | "scheduled" | "failed" | "reauth";
+  variant?:
+    | "default"
+    | "secondary"
+    | "outline"
+    | "published"
+    | "scheduled"
+    | "failed"
+    | "reauth"
+    | "publishing"
+    | "queued";
 }
 
 export function Badge({ className, variant = "default", ...props }: BadgeProps) {
@@ -14,6 +23,8 @@ export function Badge({ className, variant = "default", ...props }: BadgeProps) 
     scheduled: "bg-amber-950/60 text-amber-400 border-amber-800/60",
     failed: "bg-red-950/60 text-red-400 border-red-800/60",
     reauth: cn("bg-orange-950/60", "text-orange-400", "border-orange-800/60"),
+    publishing: "bg-cyan-950/70 text-cyan-300 border-cyan-700/70 shadow-sm shadow-cyan-950/50",
+    queued: "bg-indigo-950/70 text-indigo-300 border-indigo-700/70 shadow-sm shadow-indigo-950/50",
   };
 
   return (
