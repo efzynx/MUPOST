@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import { useState, useRef } from "react";
 import Link from "next/link";
+import { invalidatePostsCache } from "@/lib/pwa-cache";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -127,6 +128,7 @@ export default function CsvImportPage() {
       }
 
       setSummary(json.data);
+      invalidatePostsCache().catch(() => {});
     } catch (err: unknown) {
       setErrorMessage(
         err instanceof Error ? err.message : "Terjadi kesalahan jaringan saat mengunggah file."

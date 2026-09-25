@@ -1,10 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { FacebookPreview } from "./FacebookPreview";
-import { InstagramPreview } from "./InstagramPreview";
-import { TikTokPreview } from "./TikTokPreview";
-import { ThreadsPreview } from "./ThreadsPreview";
+import dynamic from "next/dynamic";
 import { PLATFORM_LIMITS } from "@/lib/services/preview-engine";
 import {
   FacebookLogo,
@@ -14,8 +11,35 @@ import {
 } from "@/components/ui/platform-icons";
 import { Badge } from "@/components/ui/badge";
 import { AlertCircle, Eye, AlertTriangle } from "lucide-react";
+import { PlatformPreviewSkeleton } from "./PreviewSkeleton";
 
 export type SupportedPlatform = "facebook" | "instagram" | "tiktok" | "threads";
+
+const FacebookPreview = dynamic(
+  () => import("./FacebookPreview").then((mod) => mod.FacebookPreview),
+  {
+    loading: () => <PlatformPreviewSkeleton platform="facebook" />,
+    ssr: false,
+  }
+);
+
+const InstagramPreview = dynamic(
+  () => import("./InstagramPreview").then((mod) => mod.InstagramPreview),
+  {
+    loading: () => <PlatformPreviewSkeleton platform="instagram" />,
+    ssr: false,
+  }
+);
+
+const TikTokPreview = dynamic(() => import("./TikTokPreview").then((mod) => mod.TikTokPreview), {
+  loading: () => <PlatformPreviewSkeleton platform="tiktok" />,
+  ssr: false,
+});
+
+const ThreadsPreview = dynamic(() => import("./ThreadsPreview").then((mod) => mod.ThreadsPreview), {
+  loading: () => <PlatformPreviewSkeleton platform="threads" />,
+  ssr: false,
+});
 
 interface PreviewPanelProps {
   textContent: string;
