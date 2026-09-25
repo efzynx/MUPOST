@@ -1,4 +1,4 @@
-import { Worker, type Job } from "bullmq";
+import { Worker, type Job, type RateLimiterOptions } from "bullmq";
 import { eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { posts, postTargets, connectedAccounts, type PlatformType } from "@/lib/db/schema";
@@ -6,6 +6,25 @@ import { getRedisClient } from "@/lib/redis";
 import { PUBLISH_QUEUE_NAME, type PublishJobData } from "@/lib/queue/publish-queue";
 import { decrypt } from "@/lib/crypto";
 import { publishPostEvent } from "@/lib/services/post-events";
+import {
+  platformRateLimiter,
+  type PlatformRateLimiter,
+  PlatformRateLimitError,
+  calculateRateLimitBackoff,
+  extractRateLimitInfo,
+} from "@/lib/queue/platform-rate-limiter";
+
+export {
+  platformRateLimiter,
+  PlatformRateLimiter,
+  PlatformRateLimitError,
+  calculateRateLimitBackoff,
+  extractRateLimitInfo,
+  DEFAULT_PLATFORM_RATE_LIMITS,
+  DEFAULT_BACKOFF_CONFIG,
+  type PlatformRateLimitConfig,
+  type RateLimitInfo,
+} from "@/lib/queue/platform-rate-limiter";
 
 // ==========================================
 // Types
@@ -20,6 +39,8 @@ export interface PlatformPublishResult {
   errorCode?: string;
   errorMessage?: string;
   needsReauth?: boolean;
+  isRateLimited?: boolean;
+  retryAfterMs?: number;
 }
 
 export interface PublishExecutionResult {
@@ -163,13 +184,19 @@ export async function publishToMeta(
         err.error_subcode === 467 ||
         res.status === 401;
 
+      const rateLimitInfo = extractRateLimitInfo(res, json);
+
       return {
         targetId,
         platform: "META_PAGE",
         success: false,
-        errorCode,
-        errorMessage,
+        errorCode: rateLimitInfo.isRateLimited ? rateLimitInfo.errorCode || errorCode : errorCode,
+        errorMessage: rateLimitInfo.isRateLimited
+          ? rateLimitInfo.errorMessage || errorMessage
+          : errorMessage,
         needsReauth: isAuthError,
+        isRateLimited: rateLimitInfo.isRateLimited,
+        retryAfterMs: rateLimitInfo.retryAfterMs,
       };
     }
 
@@ -256,13 +283,19 @@ export async function publishToInstagram(
         err.error_subcode === 463 ||
         containerRes.status === 401;
 
+      const rateLimitInfo = extractRateLimitInfo(containerRes, containerJson);
+
       return {
         targetId,
         platform: "INSTAGRAM",
         success: false,
-        errorCode,
-        errorMessage: err.message || "Gagal membuat Instagram container",
+        errorCode: rateLimitInfo.isRateLimited ? rateLimitInfo.errorCode || errorCode : errorCode,
+        errorMessage: rateLimitInfo.isRateLimited
+          ? rateLimitInfo.errorMessage || err.message || "Gagal membuat Instagram container"
+          : err.message || "Gagal membuat Instagram container",
         needsReauth: isAuthError,
+        isRateLimited: rateLimitInfo.isRateLimited,
+        retryAfterMs: rateLimitInfo.retryAfterMs,
       };
     }
 
@@ -322,6 +355,20 @@ export async function publishToInstagram(
             }
           } else {
             const statusData: MetaApiResponse = await statusRes.json().catch(() => ({}));
+            const rateLimitInfo = extractRateLimitInfo(statusRes, statusData);
+            if (rateLimitInfo.isRateLimited) {
+              return {
+                targetId,
+                platform: "INSTAGRAM",
+                success: false,
+                errorCode: rateLimitInfo.errorCode || "429",
+                errorMessage:
+                  rateLimitInfo.errorMessage ||
+                  "Instagram rate limit reached during status polling",
+                isRateLimited: true,
+                retryAfterMs: rateLimitInfo.retryAfterMs,
+              };
+            }
             if (statusData.error) {
               const err = statusData.error;
               const isAuthError =
@@ -417,13 +464,19 @@ export async function publishToInstagram(
         err.error_subcode === 463 ||
         publishRes?.status === 401;
 
+      const rateLimitInfo = extractRateLimitInfo(publishRes, publishJson);
+
       return {
         targetId,
         platform: "INSTAGRAM",
         success: false,
-        errorCode,
-        errorMessage: err.message || "Gagal mempublikasikan Instagram container",
+        errorCode: rateLimitInfo.isRateLimited ? rateLimitInfo.errorCode || errorCode : errorCode,
+        errorMessage: rateLimitInfo.isRateLimited
+          ? rateLimitInfo.errorMessage || err.message || "Gagal mempublikasikan Instagram container"
+          : err.message || "Gagal mempublikasikan Instagram container",
         needsReauth: isAuthError,
+        isRateLimited: rateLimitInfo.isRateLimited,
+        retryAfterMs: rateLimitInfo.retryAfterMs,
       };
     }
 
@@ -556,13 +609,19 @@ export async function publishToTikTok(
         errorCode === "access_token_invalid" ||
         errorCode === "scope_not_authorized";
 
+      const rateLimitInfo = extractRateLimitInfo(res, json);
+
       return {
         targetId,
         platform: "TIKTOK",
         success: false,
-        errorCode,
-        errorMessage: err.message || "TikTok API error",
+        errorCode: rateLimitInfo.isRateLimited ? rateLimitInfo.errorCode || errorCode : errorCode,
+        errorMessage: rateLimitInfo.isRateLimited
+          ? rateLimitInfo.errorMessage || err.message || "TikTok API error"
+          : err.message || "TikTok API error",
         needsReauth: isAuthError,
+        isRateLimited: rateLimitInfo.isRateLimited,
+        retryAfterMs: rateLimitInfo.retryAfterMs,
       };
     }
 
@@ -638,13 +697,19 @@ export async function publishToThreads(
       const isAuthError =
         err.type === "OAuthException" || errorCode === "190" || containerRes.status === 401;
 
+      const rateLimitInfo = extractRateLimitInfo(containerRes, containerJson);
+
       return {
         targetId,
         platform: "THREADS",
         success: false,
-        errorCode,
-        errorMessage: err.message || "Gagal membuat Threads container",
+        errorCode: rateLimitInfo.isRateLimited ? rateLimitInfo.errorCode || errorCode : errorCode,
+        errorMessage: rateLimitInfo.isRateLimited
+          ? rateLimitInfo.errorMessage || err.message || "Gagal membuat Threads container"
+          : err.message || "Gagal membuat Threads container",
         needsReauth: isAuthError,
+        isRateLimited: rateLimitInfo.isRateLimited,
+        retryAfterMs: rateLimitInfo.retryAfterMs,
       };
     }
 
@@ -726,12 +791,19 @@ export async function publishToThreads(
 
     if (!publishRes || !publishRes.ok || publishJson.error) {
       const err = publishJson?.error || {};
+      const rateLimitInfo = extractRateLimitInfo(publishRes, publishJson);
       return {
         targetId,
         platform: "THREADS",
         success: false,
-        errorCode: String(err.code || publishRes?.status || "UNKNOWN"),
-        errorMessage: err.message || "Gagal mempublikasikan Threads container",
+        errorCode: rateLimitInfo.isRateLimited
+          ? rateLimitInfo.errorCode || String(err.code || publishRes?.status || "UNKNOWN")
+          : String(err.code || publishRes?.status || "UNKNOWN"),
+        errorMessage: rateLimitInfo.isRateLimited
+          ? rateLimitInfo.errorMessage || err.message || "Gagal mempublikasikan Threads container"
+          : err.message || "Gagal mempublikasikan Threads container",
+        isRateLimited: rateLimitInfo.isRateLimited,
+        retryAfterMs: rateLimitInfo.retryAfterMs,
       };
     }
 
@@ -765,8 +837,13 @@ export async function publishToThreads(
  * 3. Eksekusi publikasi paralel via Promise.allSettled().
  * 4. Update status per post_target dan tentukan status final post (PUBLISHED/PARTIAL/FAILED).
  */
+export interface ProcessPublishJobOptions {
+  throwOnRateLimit?: boolean;
+}
+
 export async function processPublishJob(
-  job: Job<PublishJobData> | { data: PublishJobData }
+  job: Job<PublishJobData> | { data: PublishJobData },
+  options?: ProcessPublishJobOptions
 ): Promise<PublishExecutionResult> {
   const { postId, retryTargetId } = job.data;
 
@@ -870,17 +947,41 @@ export async function processPublishJob(
         };
       }
 
+      // Cek dan terapkan rate limit & throttling per platform
+      try {
+        await platformRateLimiter.acquire(target.platform, account.platformAccountId);
+      } catch (err: unknown) {
+        if (
+          err instanceof PlatformRateLimitError ||
+          (err as Record<string, unknown>)?.isRateLimited
+        ) {
+          const rateErr = err as PlatformRateLimitError;
+          return {
+            targetId: target.id,
+            platform: target.platform,
+            success: false,
+            errorCode: "RATE_LIMIT_EXCEEDED",
+            errorMessage:
+              rateErr.message || `Rate limit kuota tercapai untuk platform ${target.platform}`,
+            isRateLimited: true,
+            retryAfterMs: rateErr.retryAfterMs,
+          };
+        }
+        throw err;
+      }
+
+      let res: PlatformPublishResult;
       // Kirim ke platform yang sesuai
       if (target.platform === "META_PAGE") {
-        return publishToMeta(target.id, post, account, accessToken);
+        res = await publishToMeta(target.id, post, account, accessToken);
       } else if (target.platform === "INSTAGRAM") {
-        return publishToInstagram(target.id, post, account, accessToken);
+        res = await publishToInstagram(target.id, post, account, accessToken);
       } else if (target.platform === "TIKTOK") {
-        return publishToTikTok(target.id, post, account, accessToken);
+        res = await publishToTikTok(target.id, post, account, accessToken);
       } else if (target.platform === "THREADS") {
-        return publishToThreads(target.id, post, account, accessToken);
+        res = await publishToThreads(target.id, post, account, accessToken);
       } else {
-        return {
+        res = {
           targetId: target.id,
           platform: target.platform,
           success: false,
@@ -888,6 +989,17 @@ export async function processPublishJob(
           errorMessage: `Platform ${target.platform} belum didukung untuk publikasi.`,
         };
       }
+
+      // Jika platform mengembalikan error rate limit, catat di rate limiter
+      if (!res.success && res.isRateLimited) {
+        await platformRateLimiter.recordRateLimitHit(
+          target.platform,
+          res.retryAfterMs,
+          account.platformAccountId
+        );
+      }
+
+      return res;
     });
 
     const settledResults = await Promise.allSettled(publishPromises);
@@ -995,11 +1107,26 @@ export async function processPublishJob(
       })),
     });
 
-    return {
+    const executionResult: PublishExecutionResult = {
       postId,
       postStatus: postFinalStatus,
       results,
     };
+
+    if (options?.throwOnRateLimit) {
+      const rateLimited = results.filter((r) => !r.success && r.isRateLimited);
+      if (rateLimited.length > 0) {
+        const maxRetryAfter = Math.max(...rateLimited.map((r) => r.retryAfterMs || 0), 0);
+        const platforms = rateLimited.map((r) => r.platform).join(", ");
+        throw new PlatformRateLimitError(
+          `Rate limit tercapai untuk platform: ${platforms}`,
+          rateLimited[0]?.platform || "META_PAGE",
+          maxRetryAfter
+        );
+      }
+    }
+
+    return executionResult;
   } catch (error) {
     const errorTime = new Date();
     await db
@@ -1026,33 +1153,81 @@ export async function processPublishJob(
 // Worker Setup
 // ==========================================
 
+export interface PublishWorkerConfig {
+  connection?: ReturnType<typeof getRedisClient>;
+  concurrency?: number;
+  limiter?: RateLimiterOptions;
+  rateLimiter?: PlatformRateLimiter;
+  autorun?: boolean;
+}
+
 let publishWorker: Worker<PublishJobData> | null = null;
 
 export function createPublishWorker(
-  customConnection?: ReturnType<typeof getRedisClient>
+  customConnectionOrConfig?: ReturnType<typeof getRedisClient> | PublishWorkerConfig
 ): Worker<PublishJobData> {
-  const connection = customConnection ?? getRedisClient();
+  const isConfig =
+    customConnectionOrConfig &&
+    typeof customConnectionOrConfig === "object" &&
+    !("status" in customConnectionOrConfig) &&
+    ("concurrency" in customConnectionOrConfig ||
+      "limiter" in customConnectionOrConfig ||
+      "connection" in customConnectionOrConfig ||
+      "rateLimiter" in customConnectionOrConfig ||
+      "autorun" in customConnectionOrConfig);
+
+  const config: PublishWorkerConfig = isConfig
+    ? (customConnectionOrConfig as PublishWorkerConfig)
+    : { connection: customConnectionOrConfig as ReturnType<typeof getRedisClient> };
+
+  const connection = config.connection ?? getRedisClient();
 
   const worker = new Worker<PublishJobData>(
     PUBLISH_QUEUE_NAME,
     async (job) => {
-      return await processPublishJob(job);
+      return await processPublishJob(job, { throwOnRateLimit: true });
     },
     {
       connection,
-      concurrency: 5,
+      autorun: config.autorun ?? true,
+      concurrency: config.concurrency ?? 5,
+      limiter: config.limiter ?? {
+        max: 20,
+        duration: 1000,
+      },
+      settings: {
+        backoffStrategy: (attemptsMade, _type, err, _job) => {
+          return calculateRateLimitBackoff(attemptsMade, err, 60_000);
+        },
+      },
     }
   );
 
   worker.on("completed", (job) => {
+    // eslint-disable-next-line no-console
     console.log(`[PublishWorker] Job ${job.id} for post ${job.data.postId} completed.`);
   });
 
   worker.on("failed", async (job, err) => {
-    console.error(
-      `[PublishWorker] Job ${job?.id} for post ${job?.data?.postId} failed with error:`,
-      err
-    );
+    const isRateLimit =
+      err instanceof PlatformRateLimitError ||
+      Boolean((err as unknown as Record<string, unknown>)?.isRateLimited);
+    const attemptsMade = job?.attemptsMade ?? 0;
+    const maxAttempts = job?.opts?.attempts ?? 3;
+
+    if (isRateLimit && attemptsMade < maxAttempts) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[PublishWorker] Job ${job?.id} untuk post ${job?.data?.postId} terkena rate limit. Percobaan ulang ${attemptsMade}/${maxAttempts} dijadwalkan dengan backoff.`
+      );
+    } else {
+      // eslint-disable-next-line no-console
+      console.error(
+        `[PublishWorker] Job ${job?.id} for post ${job?.data?.postId} failed with error:`,
+        err
+      );
+    }
+
     if (job?.data?.postId) {
       try {
         const [post] = await db.select().from(posts).where(eq(posts.id, job.data.postId)).limit(1);

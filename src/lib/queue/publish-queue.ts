@@ -1,4 +1,4 @@
-import { Queue } from "bullmq";
+import { Queue, type JobsOptions, type RateLimiterOptions } from "bullmq";
 import { getRedisClient } from "@/lib/redis";
 
 export const PUBLISH_QUEUE_NAME = "publish-queue";
@@ -7,6 +7,12 @@ export interface PublishJobData {
   postId: string;
   targetAccountIds?: string[];
   retryTargetId?: string;
+}
+
+export interface PublishQueueOptions {
+  connection?: ReturnType<typeof getRedisClient>;
+  limiter?: RateLimiterOptions;
+  defaultJobOptions?: JobsOptions;
 }
 
 declare global {
@@ -18,14 +24,28 @@ declare global {
  * Membuat instance queue publish-queue dengan opsi default yang ditentukan dalam desain:
  * - attempts: 3
  * - exponential backoff mulai 60 detik (60_000 ms)
+ * - optional rate limiter / custom job options
  */
 export function createPublishQueue(
-  customConnection?: ReturnType<typeof getRedisClient>
+  customConnectionOrOptions?: ReturnType<typeof getRedisClient> | PublishQueueOptions
 ): Queue<PublishJobData> {
-  const connection = customConnection ?? getRedisClient();
+  const isOptions =
+    customConnectionOrOptions &&
+    typeof customConnectionOrOptions === "object" &&
+    !("status" in customConnectionOrOptions) &&
+    ("connection" in customConnectionOrOptions ||
+      "limiter" in customConnectionOrOptions ||
+      "defaultJobOptions" in customConnectionOrOptions);
+
+  const opts: PublishQueueOptions = isOptions
+    ? (customConnectionOrOptions as PublishQueueOptions)
+    : { connection: customConnectionOrOptions as ReturnType<typeof getRedisClient> };
+
+  const connection = opts.connection ?? getRedisClient();
 
   return new Queue<PublishJobData>(PUBLISH_QUEUE_NAME, {
     connection,
+    ...(opts.limiter ? { limiter: opts.limiter } : {}),
     defaultJobOptions: {
       attempts: 3,
       backoff: {
@@ -34,6 +54,7 @@ export function createPublishQueue(
       },
       removeOnComplete: { count: 100 },
       removeOnFail: { count: 200 },
+      ...opts.defaultJobOptions,
     },
   });
 }
