@@ -3,7 +3,11 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api-client";
-import { PreviewPanel, type SupportedPlatform } from "@/components/preview/PreviewPanel";
+import dynamic from "next/dynamic";
+import { PreviewPanelSkeleton } from "@/components/preview/PreviewSkeleton";
+import type { SupportedPlatform } from "@/components/preview/PreviewPanel";
+import { compressImage, isCompressibleImage } from "@/lib/image-compressor";
+import { invalidatePostsCache } from "@/lib/pwa-cache";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -37,6 +41,18 @@ interface ConnectedAccount {
 }
 
 // ==========================================
+// Dynamic Components
+// ==========================================
+
+const PreviewPanel = dynamic(
+  () => import("@/components/preview/PreviewPanel").then((mod) => mod.PreviewPanel),
+  {
+    loading: () => <PreviewPanelSkeleton />,
+    ssr: false,
+  }
+);
+
+// ==========================================
 // Component
 // ==========================================
 
@@ -58,6 +74,9 @@ export default function NewPostPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isCompressing, setIsCompressing] = useState(false);
+  const [compressionProgress, setCompressionProgress] = useState(0);
+  const [compressionMessage, setCompressionMessage] = useState("");
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(
     null
   );
@@ -90,15 +109,36 @@ export default function NewPostPage() {
     );
   };
 
-  // Media upload
+  // Media upload & compression
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setIsUploading(true);
     try {
+      let fileToUpload = file;
+
+      // Otomatis kompresi gambar sebelum dikirim ke endpoint /api/media/upload
+      if (isCompressibleImage(file)) {
+        setIsCompressing(true);
+        setCompressionProgress(10);
+        const originalMb = (file.size / (1024 * 1024)).toFixed(1);
+        setCompressionMessage(`Mengompresi gambar (${originalMb} MB)...`);
+
+        fileToUpload = await compressImage(file, {
+          maxWidth: 1920,
+          maxHeight: 1920,
+          quality: 0.85,
+          onProgress: (p) => setCompressionProgress(p),
+        });
+
+        setCompressionProgress(100);
+      }
+
+      setIsCompressing(false);
+      setIsUploading(true);
+
       const formData = new FormData();
-      formData.append("file", file);
+      formData.append("file", fileToUpload);
 
       const res = await apiFetch<{ url: string }>("/api/media/upload", {
         method: "POST",
@@ -118,7 +158,10 @@ export default function NewPostPage() {
     } catch {
       setFeedback({ type: "error", message: "Gagal mengupload file." });
     } finally {
+      setIsCompressing(false);
       setIsUploading(false);
+      setCompressionProgress(0);
+      setCompressionMessage("");
       // Reset input
       e.target.value = "";
     }
@@ -150,6 +193,7 @@ export default function NewPostPage() {
       });
 
       if (res.ok) {
+        await invalidatePostsCache();
         router.push("/posts");
       } else {
         const errData = res.data as unknown as { error?: { message?: string } };
@@ -184,6 +228,7 @@ export default function NewPostPage() {
       });
 
       if (res.ok) {
+        await invalidatePostsCache();
         router.push("/posts");
       } else {
         const errData = res.data as unknown as { error?: { message?: string } };
@@ -332,17 +377,49 @@ export default function NewPostPage() {
                 </div>
               )}
 
+              {/* Compression progress indicator */}
+              {isCompressing && (
+                <div
+                  data-testid="compression-progress"
+                  className="p-3 rounded-lg bg-blue-950/40 border border-blue-800/60 text-blue-300 text-xs space-y-2 animate-in fade-in duration-200"
+                >
+                  <div className="flex items-center justify-between font-medium">
+                    <span className="flex items-center gap-2">
+                      <div className="w-3.5 h-3.5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin shrink-0" />
+                      {compressionMessage || "Mengompresi gambar..."}
+                    </span>
+                    <span className="font-mono text-[11px]">{compressionProgress}%</span>
+                  </div>
+                  <div className="w-full bg-blue-950 rounded-full h-1.5 overflow-hidden">
+                    <div
+                      className="bg-blue-500 h-1.5 rounded-full transition-all duration-300 ease-out"
+                      style={{ width: `${compressionProgress}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
               {/* Upload button */}
-              <label className="flex items-center gap-2 px-4 py-3 rounded-lg border border-dashed border-zinc-700 bg-zinc-900/50 hover:border-zinc-500 hover:bg-zinc-800/50 transition-all cursor-pointer">
+              <label
+                className={`flex items-center gap-2 px-4 py-3 rounded-lg border border-dashed transition-all cursor-pointer ${
+                  isUploading || isCompressing
+                    ? "border-zinc-800 bg-zinc-900/30 opacity-60 cursor-not-allowed"
+                    : "border-zinc-700 bg-zinc-900/50 hover:border-zinc-500 hover:bg-zinc-800/50"
+                }`}
+              >
                 <Upload className="w-4 h-4 text-zinc-500" />
                 <span className="text-xs text-zinc-400">
-                  {isUploading ? "Mengupload..." : "Upload gambar atau video"}
+                  {isCompressing
+                    ? "Mengompresi gambar..."
+                    : isUploading
+                      ? "Mengupload..."
+                      : "Upload gambar atau video"}
                 </span>
                 <input
                   type="file"
-                  accept="image/jpeg,image/png,image/gif,video/mp4,video/quicktime"
+                  accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/quicktime"
                   onChange={handleFileUpload}
-                  disabled={isUploading}
+                  disabled={isUploading || isCompressing}
                   className="hidden"
                 />
               </label>
@@ -461,7 +538,14 @@ export default function NewPostPage() {
               variant="outline"
               size="md"
               onClick={handleSaveDraft}
-              disabled={!canSave || textOverLimit || isSaving || isPublishing}
+              disabled={
+                !canSave ||
+                textOverLimit ||
+                isSaving ||
+                isPublishing ||
+                isUploading ||
+                isCompressing
+              }
               isLoading={isSaving}
               className="flex-1"
             >
@@ -472,7 +556,14 @@ export default function NewPostPage() {
               variant="primary"
               size="md"
               onClick={handlePublishNow}
-              disabled={!canSave || textOverLimit || isSaving || isPublishing}
+              disabled={
+                !canSave ||
+                textOverLimit ||
+                isSaving ||
+                isPublishing ||
+                isUploading ||
+                isCompressing
+              }
               isLoading={isPublishing}
               className="flex-1"
             >

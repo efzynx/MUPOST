@@ -1,4 +1,5 @@
 import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from "@/lib/cookies";
+import { invalidatePostsCache } from "@/lib/pwa-cache";
 
 /**
  * Mengambil nilai cookie tertentu dari document.cookie di sisi browser.
@@ -41,6 +42,13 @@ export async function apiFetch<T = unknown>(
     data = await response.json();
   } catch {
     data = {} as T;
+  }
+
+  // Otomatis invalidasi cache posts saat mutasi (POST, PUT, PATCH, DELETE) pada /api/posts berhasil
+  if (response.ok && ["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
+    if (url.includes("/api/posts")) {
+      invalidatePostsCache().catch(() => {});
+    }
   }
 
   return {

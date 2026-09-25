@@ -14,7 +14,7 @@ const MAX_VIDEO_BYTES = 536_870_912; // 512 MB
 /** Threshold di atas mana kita pakai multipart upload (5 MB). */
 const MULTIPART_THRESHOLD = 5 * 1024 * 1024;
 
-const VALID_IMAGE_MIMES = new Set(["image/jpeg", "image/png", "image/gif"]);
+const VALID_IMAGE_MIMES = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
 
 const VALID_VIDEO_MIMES = new Set(["video/mp4", "video/quicktime"]);
 
@@ -74,6 +74,21 @@ export interface MediaMetadata {
  * Kembalikan null jika tidak ada signature yang cocok.
  */
 export function detectMimeFromBytes(buffer: Buffer): string | null {
+  // WebP: RIFF di offset 0 dan WEBP di offset 8
+  if (
+    buffer.length >= 12 &&
+    buffer[0] === 0x52 &&
+    buffer[1] === 0x49 &&
+    buffer[2] === 0x46 &&
+    buffer[3] === 0x46 &&
+    buffer[8] === 0x57 &&
+    buffer[9] === 0x45 &&
+    buffer[10] === 0x42 &&
+    buffer[11] === 0x50
+  ) {
+    return "image/webp";
+  }
+
   for (const sig of SIGNATURES) {
     if (buffer.length < sig.offset + sig.bytes.length) continue;
     let match = true;
@@ -99,6 +114,8 @@ function extFromMime(mime: string): string {
       return "png";
     case "image/gif":
       return "gif";
+    case "image/webp":
+      return "webp";
     case "video/mp4":
       return "mp4";
     case "video/quicktime":
