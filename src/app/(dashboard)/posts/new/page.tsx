@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api-client";
 import dynamic from "next/dynamic";
@@ -8,6 +8,12 @@ import { PreviewPanelSkeleton } from "@/components/preview/PreviewSkeleton";
 import type { SupportedPlatform } from "@/components/preview/PreviewPanel";
 import { compressImage, isCompressibleImage } from "@/lib/image-compressor";
 import { invalidatePostsCache } from "@/lib/pwa-cache";
+import { useOnlineStatus } from "@/components/OfflineBanner";
+import {
+  saveOfflineDraft,
+  cacheConnectedAccounts,
+  getCachedConnectedAccounts,
+} from "@/lib/offline-drafts";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -16,6 +22,9 @@ import {
   TikTokLogo,
   ThreadsLogo,
 } from "@/components/ui/platform-icons";
+import { PlatformConstraintValidator } from "@/components/posts/platform-constraint-validator";
+import { validateMultiPlatformConstraints, type PlatformType } from "@/lib/platform-constraints";
+import { cn } from "@/lib/utils";
 import {
   ArrowLeft,
   Save,
@@ -58,6 +67,7 @@ const PreviewPanel = dynamic(
 
 export default function NewPostPage() {
   const router = useRouter();
+  const isOnline = useOnlineStatus();
 
   // Form state
   const [textContent, setTextContent] = useState("");
@@ -89,10 +99,20 @@ export default function NewPostPage() {
     try {
       const res = await apiFetch<{ data: ConnectedAccount[] }>("/api/connect/accounts");
       if (res.ok && Array.isArray(res.data?.data)) {
-        setAccounts(res.data.data.filter((a) => a.status === "ACTIVE"));
+        const active = res.data.data.filter((a) => a.status === "ACTIVE");
+        setAccounts(active);
+        await cacheConnectedAccounts(active);
+      } else {
+        const cached = await getCachedConnectedAccounts();
+        if (cached && cached.length > 0) {
+          setAccounts(cached);
+        }
       }
     } catch {
-      // Fallback
+      const cached = await getCachedConnectedAccounts();
+      if (cached && cached.length > 0) {
+        setAccounts(cached);
+      }
     } finally {
       setIsLoadingAccounts(false);
     }
@@ -137,6 +157,27 @@ export default function NewPostPage() {
       setIsCompressing(false);
       setIsUploading(true);
 
+      // Jika offline, simpan data URL media ke state agar dapat disimpan ke IndexedDB
+      if (!isOnline) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          if (typeof reader.result === "string") {
+            setMediaUrls((prev) => [...prev, reader.result as string]);
+            setFeedback({
+              type: "success",
+              message: "Media berhasil ditambahkan secara offline (tersimpan di perangkat).",
+            });
+          }
+          setIsUploading(false);
+        };
+        reader.onerror = () => {
+          setFeedback({ type: "error", message: "Gagal membaca file secara offline." });
+          setIsUploading(false);
+        };
+        reader.readAsDataURL(fileToUpload);
+        return;
+      }
+
       const formData = new FormData();
       formData.append("file", fileToUpload);
 
@@ -171,6 +212,16 @@ export default function NewPostPage() {
     setMediaUrls((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const targetPlatforms = useMemo(() => {
+    return Array.from(
+      new Set(accounts.filter((a) => selectedAccounts.includes(a.id)).map((a) => a.platform))
+    ) as PlatformType[];
+  }, [accounts, selectedAccounts]);
+
+  const platformValidation = useMemo(() => {
+    return validateMultiPlatformConstraints(targetPlatforms, textContent, mediaUrls);
+  }, [targetPlatforms, textContent, mediaUrls]);
+
   // Validation
   const canSave = textContent.trim().length > 0 && selectedAccounts.length > 0;
   const textOverLimit = textContent.length > MAX_TEXT;
@@ -180,6 +231,31 @@ export default function NewPostPage() {
     if (!canSave || textOverLimit) return;
     setIsSaving(true);
     setFeedback(null);
+
+    // Jika sedang offline, simpan langsung ke IndexedDB
+    if (!isOnline) {
+      try {
+        await saveOfflineDraft({
+          textContent,
+          mediaUrls: mediaUrls.length > 0 ? mediaUrls : undefined,
+          targetAccountIds: selectedAccounts,
+          scheduledAt: useSchedule && scheduledAt ? new Date(scheduledAt).toISOString() : null,
+          status: "DRAFT",
+        });
+        await invalidatePostsCache();
+        setFeedback({
+          type: "success",
+          message:
+            "Mode offline: Draft berhasil disimpan ke perangkat dan akan disinkronkan saat koneksi pulih.",
+        });
+        setTimeout(() => router.push("/posts"), 1200);
+      } catch {
+        setFeedback({ type: "error", message: "Gagal menyimpan draft secara offline." });
+      } finally {
+        setIsSaving(false);
+      }
+      return;
+    }
 
     try {
       const res = await apiFetch("/api/posts", {
@@ -203,7 +279,24 @@ export default function NewPostPage() {
         });
       }
     } catch {
-      setFeedback({ type: "error", message: "Gagal menyimpan post." });
+      // Fallback ke penyimpanan offline jika request jaringan terputus
+      try {
+        await saveOfflineDraft({
+          textContent,
+          mediaUrls: mediaUrls.length > 0 ? mediaUrls : undefined,
+          targetAccountIds: selectedAccounts,
+          scheduledAt: useSchedule && scheduledAt ? new Date(scheduledAt).toISOString() : null,
+          status: "DRAFT",
+        });
+        await invalidatePostsCache();
+        setFeedback({
+          type: "success",
+          message: "Koneksi terganggu. Draft berhasil diamankan ke penyimpanan lokal perangkat.",
+        });
+        setTimeout(() => router.push("/posts"), 1200);
+      } catch {
+        setFeedback({ type: "error", message: "Gagal menyimpan post." });
+      }
     } finally {
       setIsSaving(false);
     }
@@ -211,6 +304,21 @@ export default function NewPostPage() {
 
   const handlePublishNow = async () => {
     if (!canSave || textOverLimit) return;
+    if (!isOnline) {
+      setFeedback({
+        type: "error",
+        message:
+          "Publikasi langsung memerlukan koneksi internet. Simpan sebagai draft terlebih dahulu.",
+      });
+      return;
+    }
+    if (platformValidation.hasBlockingErrors) {
+      setFeedback({
+        type: "error",
+        message: `Tidak dapat mempublikasikan: ${platformValidation.blockingReasons[0]}`,
+      });
+      return;
+    }
     if (!window.confirm("Publikasikan post ini sekarang?")) return;
 
     setIsPublishing(true);
@@ -333,17 +441,47 @@ export default function NewPostPage() {
                 rows={6}
                 className="w-full bg-transparent text-sm text-zinc-100 placeholder-zinc-600 p-5 resize-none focus:outline-none leading-relaxed"
               />
-              <div className="px-5 pb-3 flex items-center justify-between">
+              <div className="px-5 pb-3 flex flex-wrap items-center justify-between gap-2 border-t border-zinc-800/40 pt-2.5">
+                {/* Platform limit indicators */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {platformValidation.validations.map((v) => (
+                    <span
+                      key={v.platform}
+                      className={cn(
+                        "text-[10px] font-mono px-2 py-0.5 rounded font-medium flex items-center gap-1",
+                        v.charStatus === "exceeded"
+                          ? "bg-red-500/15 text-red-400 border border-red-500/30 font-bold"
+                          : v.charStatus === "warning"
+                            ? "bg-amber-500/15 text-amber-400 border border-amber-500/30 font-semibold"
+                            : "bg-zinc-800/80 text-zinc-400 border border-zinc-700/50"
+                      )}
+                    >
+                      <span>{v.platformName}:</span>
+                      <span>
+                        {v.charCount}/{v.maxCharacters.toLocaleString()}
+                      </span>
+                    </span>
+                  ))}
+                </div>
+
                 <span
-                  className={`text-[11px] font-mono ${
+                  className={cn(
+                    "text-[11px] font-mono ml-auto",
                     textOverLimit ? "text-red-400 font-semibold" : "text-zinc-500"
-                  }`}
+                  )}
                 >
                   {textContent.length.toLocaleString()} / {MAX_TEXT.toLocaleString()}
                 </span>
               </div>
             </CardContent>
           </Card>
+
+          {/* Realtime Platform Constraint Validator */}
+          <PlatformConstraintValidator
+            selectedPlatforms={targetPlatforms}
+            textContent={textContent}
+            mediaUrls={mediaUrls}
+          />
 
           {/* Media Upload */}
           <Card className="border-zinc-800 bg-zinc-900/40 rounded-xl">
@@ -541,6 +679,10 @@ export default function NewPostPage() {
               disabled={
                 !canSave ||
                 textOverLimit ||
+                (platformValidation.hasBlockingErrors &&
+                  platformValidation.blockingReasons.some((r) =>
+                    r.includes("Melebihi batas karakter")
+                  )) ||
                 isSaving ||
                 isPublishing ||
                 isUploading ||
@@ -550,7 +692,11 @@ export default function NewPostPage() {
               className="flex-1"
             >
               <Save className="w-4 h-4" />
-              {useSchedule && scheduledAt ? "Jadwalkan" : "Simpan sebagai Draft"}
+              {!isOnline
+                ? "Simpan Draft (Offline)"
+                : useSchedule && scheduledAt
+                  ? "Jadwalkan"
+                  : "Simpan sebagai Draft"}
             </Button>
             <Button
               variant="primary"
@@ -558,11 +704,20 @@ export default function NewPostPage() {
               onClick={handlePublishNow}
               disabled={
                 !canSave ||
+                !isOnline ||
                 textOverLimit ||
+                platformValidation.hasBlockingErrors ||
                 isSaving ||
                 isPublishing ||
                 isUploading ||
                 isCompressing
+              }
+              title={
+                !isOnline
+                  ? "Publikasi langsung memerlukan koneksi internet. Simpan sebagai draft terlebih dahulu."
+                  : platformValidation.hasBlockingErrors
+                    ? platformValidation.blockingReasons[0]
+                    : undefined
               }
               isLoading={isPublishing}
               className="flex-1"

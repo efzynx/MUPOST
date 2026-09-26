@@ -7,6 +7,8 @@ import { db } from "@/lib/db";
 import { posts, postTargets } from "@/lib/db/schema";
 import { eq, sql } from "drizzle-orm";
 
+import { tokenHealthService } from "@/lib/services/token-health-service";
+
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const sessionCookie = request.cookies.get(SESSION_COOKIE_NAME)?.value;
   if (!sessionCookie) {
@@ -91,13 +93,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     // 4. Ambil 5 postingan terakhir / terbaru
     const recentPostsResult = await postManager.listPosts(user.id, {}, { page: 1 });
-
     const recentPosts = recentPostsResult.posts.slice(0, 5);
+
+    // 5. Ambil status kesehatan token proaktif untuk akun terhubung
+    const tokenHealth = await tokenHealthService.getUserTokensHealth(user.id);
 
     return NextResponse.json(
       {
         data: {
           accounts,
+          tokenHealth,
           stats: {
             totalPosts: counts.TOTAL,
             publishedPosts: counts.PUBLISHED,

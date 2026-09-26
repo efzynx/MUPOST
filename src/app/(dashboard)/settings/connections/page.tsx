@@ -45,6 +45,7 @@ function ConnectionsContent() {
   const [accounts, setAccounts] = useState<ConnectedAccount[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [disconnectingId, setDisconnectingId] = useState<string | null>(null);
+  const [refreshingId, setRefreshingId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{
     type: "success" | "error";
     message: string;
@@ -143,7 +144,55 @@ function ConnectionsContent() {
     }
   };
 
+  const handleRefreshToken = async (accountId: string, accountName: string) => {
+    setRefreshingId(accountId);
+    try {
+      const res = await apiFetch<{ success: boolean; message?: string; error?: string }>(
+        "/api/connect/health/refresh",
+        {
+          method: "POST",
+          body: JSON.stringify({ accountId }),
+        }
+      );
+
+      if (res.ok && res.data?.success) {
+        setFeedback({
+          type: "success",
+          message: `Token untuk akun "${accountName}" berhasil diperbarui.`,
+        });
+        await loadAccounts();
+      } else {
+        setFeedback({
+          type: "error",
+          message: res.data?.error || `Gagal memperbarui token untuk akun "${accountName}".`,
+        });
+      }
+    } catch {
+      setFeedback({
+        type: "error",
+        message: "Terjadi kesalahan jaringan saat memperbarui token.",
+      });
+    } finally {
+      setRefreshingId(null);
+    }
+  };
+
+  const isExpiringSoon = (expiresAt: string | null) => {
+    if (!expiresAt) return false;
+    const diff = new Date(expiresAt).getTime() - Date.now();
+    return diff > 0 && diff <= 7 * 24 * 60 * 60 * 1000;
+  };
+
+  const getDaysRemaining = (expiresAt: string | null) => {
+    if (!expiresAt) return null;
+    const diff = new Date(expiresAt).getTime() - Date.now();
+    return Math.max(1, Math.ceil(diff / (24 * 60 * 60 * 1000)));
+  };
+
   const staleAccounts = accounts.filter((acc) => acc.status === "NEEDS_REAUTH");
+  const expiringAccounts = accounts.filter(
+    (acc) => acc.status === "ACTIVE" && isExpiringSoon(acc.tokenExpiresAt)
+  );
 
   const metaAccountsCount = accounts.filter(
     (a) => a.platform === "META_PAGE" || a.platform === "INSTAGRAM"
@@ -261,16 +310,39 @@ function ConnectionsContent() {
       {staleAccounts.length > 0 && (
         <div className="flex items-start gap-3 p-4 rounded-xl border border-orange-800/60 bg-orange-950/40 text-orange-200 text-xs shadow-lg shadow-orange-950/20">
           <AlertTriangle className="w-4 h-4 text-orange-400 shrink-0 mt-0.5" />
-          <div className="space-y-1">
-            <p className="font-semibold text-orange-300">
+          <div className="space-y-1 flex-1 min-w-0">
+            <p className="font-semibold text-orange-300 break-words">
               Perhatian: {staleAccounts.length} akun memerlukan autentikasi ulang
             </p>
-            <p className="text-orange-200/80">
+            <p className="text-orange-200/80 break-words leading-relaxed">
               Token akses untuk akun berikut telah kedaluwarsa atau gagal diperbarui otomatis:{" "}
               <span className="font-medium text-orange-100">
                 {staleAccounts.map((a) => a.accountName).join(", ")}
               </span>
               . Sambungkan kembali untuk melanjutkan publikasi otomatis.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Peringatan Dini Token Mendekati Kedaluwarsa (< 7 hari) */}
+      {expiringAccounts.length > 0 && (
+        <div className="flex items-start gap-3 p-4 rounded-xl border border-amber-800/60 bg-amber-950/40 text-amber-200 text-xs shadow-lg shadow-amber-950/20">
+          <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+          <div className="space-y-1 flex-1 min-w-0">
+            <p className="font-semibold text-amber-300 break-words">
+              Peringatan Dini: {expiringAccounts.length} akun mendekati masa kedaluwarsa (&lt; 7
+              hari)
+            </p>
+            <p className="text-amber-200/80 break-words leading-relaxed">
+              Akun berikut memiliki OAuth token yang akan segera habis masa berlakunya:{" "}
+              <span className="font-medium text-amber-100">
+                {expiringAccounts
+                  .map((a) => `${a.accountName} (sisa ${getDaysRemaining(a.tokenExpiresAt)} hari)`)
+                  .join(", ")}
+              </span>
+              . Disarankan untuk memperbarui token sekarang untuk memastikan posting terjadwal tidak
+              terganggu.
             </p>
           </div>
         </div>
@@ -489,26 +561,36 @@ function ConnectionsContent() {
               {accounts.map((acc) => (
                 <div
                   key={acc.id}
-                  className="p-4 sm:px-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 hover:bg-zinc-900/50 transition-colors"
+                  className="p-4 sm:px-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3.5 sm:gap-4 hover:bg-zinc-900/50 transition-colors"
                 >
-                  <div className="flex items-center gap-3.5">
-                    <div className="shrink-0">{getPlatformIcon(acc.platform)}</div>
-                    <div className="space-y-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-sm font-semibold text-zinc-100">
+                  <div className="flex items-start gap-3 sm:gap-3.5 min-w-0 flex-1">
+                    <div className="shrink-0 mt-0.5">{getPlatformIcon(acc.platform)}</div>
+                    <div className="space-y-1.5 min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                        <span className="text-sm font-semibold text-zinc-100 break-words">
                           {acc.accountName}
                         </span>
                         {getPlatformBadge(acc.platform)}
-                        {getStatusBadge(acc.status)}
                       </div>
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-400">
-                        <span className="font-mono text-[11px] text-zinc-500">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {getStatusBadge(acc.status)}
+                        {acc.status === "ACTIVE" && isExpiringSoon(acc.tokenExpiresAt) && (
+                          <Badge variant="scheduled" className="text-[11px]">
+                            Kedaluwarsa {getDaysRemaining(acc.tokenExpiresAt)} hari lagi
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex flex-col xs:flex-row xs:items-center gap-x-2.5 gap-y-0.5 text-xs text-zinc-400 pt-0.5">
+                        <span
+                          className="font-mono text-[11px] text-zinc-500 truncate max-w-[260px] sm:max-w-xs"
+                          title={acc.platformAccountId}
+                        >
                           ID: {acc.platformAccountId}
                         </span>
-                        <span className="text-zinc-600">•</span>
-                        <span>
-                          Masa Berlaku Token:{" "}
-                          <span className="text-zinc-300">
+                        <span className="text-zinc-600 hidden xs:inline">•</span>
+                        <span className="text-xs break-words">
+                          Masa Berlaku:{" "}
+                          <span className="text-zinc-300 font-medium">
                             {acc.tokenExpiresAt
                               ? new Date(acc.tokenExpiresAt).toLocaleDateString("id-ID", {
                                   day: "numeric",
@@ -524,7 +606,7 @@ function ConnectionsContent() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                  <div className="flex flex-wrap sm:flex-nowrap items-center justify-end sm:justify-start gap-2 pt-2.5 sm:pt-0 border-t border-zinc-800/50 sm:border-t-0 w-full sm:w-auto shrink-0">
                     {acc.status === "NEEDS_REAUTH" && (
                       <a
                         href={
@@ -534,16 +616,33 @@ function ConnectionsContent() {
                               ? "/api/connect/threads/authorize"
                               : "/api/connect/meta/authorize"
                         }
+                        className="flex-1 sm:flex-initial"
                       >
-                        <Button variant="outline" size="sm">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full sm:w-auto text-xs min-h-[38px] sm:min-h-0 justify-center font-medium"
+                        >
                           Sambungkan Ulang
                         </Button>
                       </a>
                     )}
+                    {acc.status === "ACTIVE" && isExpiringSoon(acc.tokenExpiresAt) && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleRefreshToken(acc.id, acc.accountName)}
+                        isLoading={refreshingId === acc.id}
+                        className="flex-1 sm:flex-initial text-xs min-h-[38px] sm:min-h-0 justify-center font-medium"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5 mr-1" />
+                        Perbarui Token
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="text-zinc-400 hover:text-red-400 hover:bg-red-950/30"
+                      className="text-zinc-400 hover:text-red-400 hover:bg-red-950/30 text-xs min-h-[38px] sm:min-h-0 justify-center shrink-0"
                       onClick={() => handleDisconnect(acc.id, acc.accountName)}
                       isLoading={disconnectingId === acc.id}
                     >

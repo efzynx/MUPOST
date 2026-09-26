@@ -3,7 +3,6 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api-client";
-import dynamic from "next/dynamic";
 import { invalidatePostsCache } from "@/lib/pwa-cache";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,15 +13,8 @@ import {
   TikTokLogo,
   ThreadsLogo,
 } from "@/components/ui/platform-icons";
-import type { DeletePostApiResponse } from "@/components/posts/delete-post-modal";
+import { DeletePostModal, type DeletePostApiResponse } from "@/components/posts/delete-post-modal";
 import { formatDeleteFeedbackMessage } from "@/lib/services/post-delete-helpers";
-
-const DeletePostModal = dynamic(
-  () => import("@/components/posts/delete-post-modal").then((mod) => mod.DeletePostModal),
-  {
-    ssr: false,
-  }
-);
 import {
   Plus,
   Filter,
@@ -44,8 +36,14 @@ import {
   CheckCircle2,
   AlertCircle,
   Info,
+  LayoutList,
+  WifiOff,
+  RefreshCw,
 } from "lucide-react";
+import { ContentCalendarView } from "@/components/posts/content-calendar-view";
 import { useOnlineStatus } from "@/components/OfflineBanner";
+import { useOfflineDraftSync } from "@/lib/hooks/use-offline-draft-sync";
+import { cachePostsList, type CachedPostItem } from "@/lib/offline-drafts";
 import {
   usePostRealtime,
   useStatusTracker,
@@ -200,11 +198,23 @@ function PostsListContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
 
+  // View mode: List vs Calendar
+  const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
+  const [calendarPosts, setCalendarPosts] = useState<PostItem[]>([]);
+  const [isLoadingCalendar, setIsLoadingCalendar] = useState(false);
+
   // Filters
   const [statusFilters, setStatusFilters] = useState<StatusFilter[]>([]);
   const [platformFilters, setPlatformFilters] = useState<PlatformFilter[]>([]);
 
   const isOnline = useOnlineStatus();
+  const {
+    drafts: offlineDrafts,
+    pendingCount,
+    isSyncing: isSyncingDrafts,
+    syncNow,
+    removeDraft,
+  } = useOfflineDraftSync();
   const OFFLINE_TOOLTIP = "Tidak tersedia saat offline";
 
   // Action states
@@ -232,9 +242,11 @@ function PostsListContent() {
         const res = await apiFetch<ListResponse["data"]>(`/api/posts?${params.toString()}`);
         if (res.ok && res.data) {
           const data = (res.data as unknown as ListResponse).data ?? res.data;
-          setPosts(data.posts ?? []);
+          const fetchedPosts = data.posts ?? [];
+          setPosts(fetchedPosts);
           setTotal(data.total ?? 0);
           setTotalPages(data.totalPages ?? 0);
+          cachePostsList(fetchedPosts as unknown as CachedPostItem[]).catch(() => {});
         }
       } catch {
         // Fallback
@@ -251,6 +263,59 @@ function PostsListContent() {
   useEffect(() => {
     loadPosts(false);
   }, [loadPosts]);
+
+  // Fetch broader post dataset for Calendar View if totalPages > 1
+  useEffect(() => {
+    if (viewMode === "calendar") {
+      let isMounted = true;
+      const fetchCalendarData = async () => {
+        setIsLoadingCalendar(true);
+        try {
+          const params = new URLSearchParams();
+          if (statusFilters.length > 0) params.set("status", statusFilters.join(","));
+          if (platformFilters.length > 0) params.set("platform", platformFilters.join(","));
+          params.set("page", "1");
+
+          const res = await apiFetch<ListResponse["data"]>(`/api/posts?${params.toString()}`);
+          if (!res.ok || !res.data) return;
+          const firstPageData = (res.data as unknown as ListResponse).data ?? res.data;
+          let allPosts = [...(firstPageData.posts ?? [])];
+          const totalP = firstPageData.totalPages ?? 1;
+
+          if (totalP > 1) {
+            const pageRequests = [];
+            for (let p = 2; p <= Math.min(totalP, 5); p++) {
+              const nextP = new URLSearchParams(params);
+              nextP.set("page", String(p));
+              pageRequests.push(apiFetch<ListResponse["data"]>(`/api/posts?${nextP.toString()}`));
+            }
+            const settled = await Promise.allSettled(pageRequests);
+            for (const r of settled) {
+              if (r.status === "fulfilled" && r.value.ok && r.value.data) {
+                const pageData = (r.value.data as unknown as ListResponse).data ?? r.value.data;
+                if (pageData.posts) {
+                  allPosts = allPosts.concat(pageData.posts);
+                }
+              }
+            }
+          }
+          if (isMounted) {
+            setCalendarPosts(allPosts);
+          }
+        } catch {
+          // fallback
+        } finally {
+          if (isMounted) {
+            setIsLoadingCalendar(false);
+          }
+        }
+      };
+      fetchCalendarData();
+      return () => {
+        isMounted = false;
+      };
+    }
+  }, [viewMode, statusFilters, platformFilters]);
 
   // Status transition tracking for real-time visual feedback
   const { transitioningIds, recentNotifications, dismissNotification } = useStatusTracker(posts);
@@ -429,52 +494,92 @@ function PostsListContent() {
             isSseConnected={isSseConnected}
             connectionMode={connectionMode}
             onRefresh={refresh}
+            offlineDraftsCount={pendingCount}
+            isSyncingOfflineDrafts={isSyncingDrafts}
+            onSyncOfflineDrafts={syncNow}
           />
         </div>
 
         {/* Action Buttons with Touch-Friendly Heights */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowFilters(!showFilters)}
-            className={cn(
-              "min-h-[42px] px-3.5 text-xs touch-manipulation",
-              hasActiveFilters ? "border-indigo-500/50 text-indigo-300" : ""
-            )}
-          >
-            <Filter className="w-3.5 h-3.5 mr-1.5" />
-            Filter
-            {hasActiveFilters && (
-              <span className="ml-1.5 w-4 h-4 rounded-full bg-indigo-500 text-[10px] text-white flex items-center justify-center font-bold">
-                {statusFilters.length + platformFilters.length}
-              </span>
-            )}
-          </Button>
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* View Switcher: List vs Calendar */}
+            <div className="inline-flex p-1 rounded-xl bg-zinc-900 border border-zinc-800 text-xs">
+              <button
+                type="button"
+                onClick={() => setViewMode("list")}
+                className={cn(
+                  "min-h-[38px] px-3.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all touch-manipulation active:scale-95",
+                  viewMode === "list"
+                    ? "bg-zinc-100 text-zinc-900 font-semibold shadow-xs"
+                    : "text-zinc-400 hover:text-zinc-200"
+                )}
+                aria-label="Tampilan Daftar (List View)"
+              >
+                <LayoutList className="w-3.5 h-3.5" />
+                <span>Daftar</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("calendar")}
+                className={cn(
+                  "min-h-[38px] px-3.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all touch-manipulation active:scale-95",
+                  viewMode === "calendar"
+                    ? "bg-zinc-100 text-zinc-900 font-semibold shadow-xs"
+                    : "text-zinc-400 hover:text-zinc-200"
+                )}
+                aria-label="Tampilan Kalender (Calendar View)"
+              >
+                <Calendar className="w-3.5 h-3.5" />
+                <span>Kalender</span>
+              </button>
+            </div>
 
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={!isOnline}
-            title={!isOnline ? OFFLINE_TOOLTIP : undefined}
-            onClick={() => router.push("/posts/import")}
-            className="min-h-[42px] px-3.5 text-xs touch-manipulation"
-          >
-            <Upload className="w-3.5 h-3.5 mr-1.5" />
-            Import CSV
-          </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowFilters(!showFilters)}
+              className={cn(
+                "min-h-[42px] px-3.5 text-xs touch-manipulation",
+                hasActiveFilters ? "border-indigo-500/50 text-indigo-300" : ""
+              )}
+            >
+              <Filter className="w-3.5 h-3.5 mr-1.5" />
+              Filter
+              {hasActiveFilters && (
+                <span className="ml-1.5 w-4 h-4 rounded-full bg-indigo-500 text-[10px] text-white flex items-center justify-center font-bold">
+                  {statusFilters.length + platformFilters.length}
+                </span>
+              )}
+            </Button>
+          </div>
 
-          <Button
-            variant="primary"
-            size="sm"
-            disabled={!isOnline}
-            title={!isOnline ? OFFLINE_TOOLTIP : undefined}
-            onClick={() => router.push("/posts/new")}
-            className="min-h-[42px] px-4 text-xs ml-auto sm:ml-0 touch-manipulation shadow-sm"
-          >
-            <Plus className="w-3.5 h-3.5 mr-1.5" />
-            Buat Post
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!isOnline}
+              title={!isOnline ? OFFLINE_TOOLTIP : undefined}
+              onClick={() => router.push("/posts/import")}
+              className="min-h-[42px] px-3.5 text-xs touch-manipulation"
+            >
+              <Upload className="w-3.5 h-3.5 mr-1.5" />
+              Import CSV
+            </Button>
+
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => router.push("/posts/new")}
+              title={
+                !isOnline ? "Buat post (disimpan sebagai draft offline jika terputus)" : undefined
+              }
+              className="min-h-[42px] px-4 text-xs ml-auto sm:ml-0 touch-manipulation shadow-sm"
+            >
+              <Plus className="w-3.5 h-3.5 mr-1.5" />
+              Buat Post
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -505,6 +610,112 @@ function PostsListContent() {
             ✕
           </button>
         </div>
+      )}
+
+      {/* Offline Drafts Section */}
+      {offlineDrafts.length > 0 && (
+        <Card className="border-amber-500/30 bg-amber-950/20 rounded-xl overflow-hidden">
+          <CardContent className="p-4 sm:p-5 space-y-3">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
+                  <WifiOff className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-xs sm:text-sm font-semibold text-zinc-100 flex items-center gap-2">
+                    Draft Tersimpan Offline ({offlineDrafts.length})
+                  </h3>
+                  <p className="text-[11px] text-amber-200/80">
+                    Tersimpan lokal di perangkat ini. Otomatis disinkronkan ke server saat online.
+                  </p>
+                </div>
+              </div>
+
+              {isOnline && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => syncNow()}
+                  disabled={isSyncingDrafts}
+                  className="min-h-[34px] px-3 text-xs border-amber-500/40 text-amber-200 hover:bg-amber-500/20"
+                >
+                  {isSyncingDrafts ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin text-amber-300" />
+                      Menyinkronkan...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+                      Sinkronkan Sekarang
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
+
+            <div className="divide-y divide-zinc-800/60 rounded-lg border border-zinc-800/80 bg-zinc-950/60 overflow-hidden">
+              {offlineDrafts.map((draft) => (
+                <div
+                  key={draft.id}
+                  className="p-3.5 flex items-center justify-between gap-3 hover:bg-zinc-900/50 transition-colors"
+                >
+                  <div
+                    className="flex-1 min-w-0 cursor-pointer"
+                    onClick={() => router.push(`/posts/${draft.id}/edit`)}
+                  >
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                        {draft.syncStatus === "syncing"
+                          ? "Menyinkronkan..."
+                          : draft.syncStatus === "failed"
+                            ? "Gagal Sinkron"
+                            : "Draft Offline"}
+                      </span>
+                      <span className="text-[10px] text-zinc-500 font-mono">
+                        {new Date(draft.updatedAt || draft.createdAt).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                    </div>
+                    <p className="text-xs text-zinc-200 truncate font-medium">
+                      {draft.textContent || "(Tanpa teks)"}
+                    </p>
+                    {draft.lastSyncError && (
+                      <p className="text-[10px] text-red-400 mt-0.5 truncate">
+                        Error: {draft.lastSyncError}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => router.push(`/posts/${draft.id}/edit`)}
+                      className="min-h-[32px] px-2.5 text-[11px]"
+                    >
+                      Edit
+                    </Button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (window.confirm("Hapus draft offline ini dari perangkat?")) {
+                          await removeDraft(draft.id);
+                        }
+                      }}
+                      className="p-1.5 rounded text-zinc-500 hover:text-red-400 hover:bg-zinc-800/80 transition-colors"
+                      title="Hapus draft dari perangkat"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Filter Panel */}
@@ -576,8 +787,17 @@ function PostsListContent() {
         </Card>
       )}
 
-      {/* Post List */}
-      {isLoading ? (
+      {/* Calendar View vs List View */}
+      {viewMode === "calendar" ? (
+        <ContentCalendarView
+          posts={calendarPosts.length > 0 ? calendarPosts : posts}
+          isLoading={isLoadingCalendar || isLoading}
+          onPostClick={(post) => router.push(`/posts/${post.id}/edit`)}
+          onRetryPost={handleRetry}
+          onPublishPost={handlePublish}
+          isOnline={isOnline}
+        />
+      ) : isLoading ? (
         <div className="py-20 text-center">
           <div className="w-6 h-6 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
           <p className="text-xs text-zinc-500">Memuat post...</p>
@@ -633,11 +853,17 @@ function PostsListContent() {
                     isProcessing &&
                     "border-indigo-800/80 bg-zinc-900/50 shadow-sm",
                   !isTransitioning && !isProcessing && "border-zinc-800/80 bg-zinc-900/40",
-                  isOnline ? "hover:border-zinc-700/80 cursor-pointer" : "cursor-default opacity-90"
+                  isOnline || post.status === "DRAFT" || post.id.startsWith("offline_")
+                    ? "hover:border-zinc-700/80 cursor-pointer"
+                    : "cursor-default opacity-90"
                 )}
-                title={!isOnline ? OFFLINE_TOOLTIP : undefined}
+                title={
+                  !isOnline && post.status !== "DRAFT" && !post.id.startsWith("offline_")
+                    ? OFFLINE_TOOLTIP
+                    : undefined
+                }
                 onClick={() => {
-                  if (isOnline) {
+                  if (isOnline || post.status === "DRAFT" || post.id.startsWith("offline_")) {
                     router.push(`/posts/${post.id}/edit`);
                   }
                 }}

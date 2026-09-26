@@ -374,3 +374,5 @@ export function DeletePostModal({
     </div>
   );
 }
+
+export default DeletePostModal;

@@ -75,6 +75,8 @@ const withPWA = withPWAInit({
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   allowedDevOrigins: [
+    "cornfield-from-glamour.ngrok-free.dev",
+    "*.ngrok-free.dev",
     "59c9-103-160-68-93.ngrok-free.app",
     "*.ngrok-free.app",
     "*.ngrok.io",
@@ -84,6 +86,8 @@ const nextConfig = {
     serverComponentsExternalPackages: ["bullmq", "ioredis"],
     serverActions: {
       allowedOrigins: [
+        "cornfield-from-glamour.ngrok-free.dev",
+        "*.ngrok-free.dev",
         "59c9-103-160-68-93.ngrok-free.app",
         "*.ngrok-free.app",
         "*.ngrok.io",
@@ -119,7 +123,7 @@ const nextConfig = {
           {
             key: "Content-Security-Policy",
             value:
-              "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https:;",
+              "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https: wss: ws:;",
           },
         ],
       },

@@ -1,4 +1,4 @@
-import { invalidatePostsCache, POSTS_CACHE_NAME } from "@/lib/pwa-cache";
+import { invalidatePostsCache, registerBackgroundSync, POSTS_CACHE_NAME } from "@/lib/pwa-cache";
 
 describe("pwa-cache", () => {
   it("should return false gracefully if window is undefined (SSR environment)", async () => {
@@ -84,5 +84,44 @@ describe("pwa-cache", () => {
       global.window = originalWindow;
       global.navigator = originalNavigator;
     }
+  });
+
+  describe("registerBackgroundSync", () => {
+    it("should return false gracefully when window is undefined", async () => {
+      const originalWindow = global.window;
+      try {
+        delete (global as Record<string, unknown>).window;
+        const res = await registerBackgroundSync();
+        expect(res).toBe(false);
+      } finally {
+        global.window = originalWindow;
+      }
+    });
+
+    it("should register sync tag with serviceWorker.ready.sync if supported", async () => {
+      const originalWindow = global.window;
+      const originalNavigator = global.navigator;
+      const mockRegister = jest.fn().mockResolvedValue(undefined);
+
+      try {
+        (global as unknown as { window: unknown }).window = {};
+        (global as unknown as { navigator: unknown }).navigator = {
+          serviceWorker: {
+            ready: Promise.resolve({
+              sync: {
+                register: mockRegister,
+              },
+            }),
+          },
+        };
+
+        const res = await registerBackgroundSync("sync-offline-drafts");
+        expect(res).toBe(true);
+        expect(mockRegister).toHaveBeenCalledWith("sync-offline-drafts");
+      } finally {
+        global.window = originalWindow;
+        global.navigator = originalNavigator;
+      }
+    });
   });
 });
