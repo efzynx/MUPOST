@@ -3,11 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p ${PORT:-4829}",
     "all": "npm run dev:all",
     "dev:all": "bash scripts/dev-all.sh",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -p ${PORT:-4829}",
     "lint": "next lint",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

@@ -11,7 +11,7 @@ export default defineConfig({
   reporter: [["list"], ["html", { outputFolder: "e2e-report", open: "never" }]],
   globalSetup: "./e2e/global-setup.ts",
   use: {
-    baseURL: process.env.E2E_BASE_URL || "http://localhost:3000",
+    baseURL: process.env.E2E_BASE_URL || "http://localhost:4829",
     trace: "on-first-retry",
     screenshot: "only-on-failure",
     headless: true,
