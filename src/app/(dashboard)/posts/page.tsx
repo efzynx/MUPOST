@@ -3,6 +3,8 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api-client";
+import dynamic from "next/dynamic";
+import { invalidatePostsCache } from "@/lib/pwa-cache";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,8 +14,15 @@ import {
   TikTokLogo,
   ThreadsLogo,
 } from "@/components/ui/platform-icons";
-import { DeletePostModal, type DeletePostApiResponse } from "@/components/posts/delete-post-modal";
+import type { DeletePostApiResponse } from "@/components/posts/delete-post-modal";
 import { formatDeleteFeedbackMessage } from "@/lib/services/post-delete-helpers";
+
+const DeletePostModal = dynamic(
+  () => import("@/components/posts/delete-post-modal").then((mod) => mod.DeletePostModal),
+  {
+    ssr: false,
+  }
+);
 import {
   Plus,
   Filter,
@@ -331,6 +340,7 @@ function PostsListContent() {
 
   // Actions
   const handleDeleteSuccess = (result: DeletePostApiResponse, deletedPost: PostItem) => {
+    invalidatePostsCache().catch(() => {});
     setPosts((prev) => prev.filter((p) => p.id !== deletedPost.id));
     setTotal((prev) => Math.max(0, prev - 1));
     const feedbackMsg = formatDeleteFeedbackMessage({
@@ -348,6 +358,7 @@ function PostsListContent() {
       setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, status: "QUEUED" } : p)));
       const res = await apiFetch(`/api/posts/${postId}/publish`, { method: "POST" });
       if (res.ok) {
+        await invalidatePostsCache();
         await loadPosts(true);
       }
     } finally {
@@ -363,6 +374,7 @@ function PostsListContent() {
       setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, status: "QUEUED" } : p)));
       const res = await apiFetch(`/api/posts/${postId}/retry`, { method: "POST" });
       if (res.ok) {
+        await invalidatePostsCache();
         await loadPosts(true);
       }
     } finally {
@@ -384,7 +396,10 @@ function PostsListContent() {
           targetAccountIds: post.targets.map((t) => t.connectedAccountId),
         }),
       });
-      if (res.ok) loadPosts(true);
+      if (res.ok) {
+        await invalidatePostsCache();
+        loadPosts(true);
+      }
     } finally {
       setActionId(null);
       setActiveMenuId(null);

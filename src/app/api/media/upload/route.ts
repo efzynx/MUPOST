@@ -85,7 +85,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         error: {
           code: "UNSUPPORTED_FORMAT",
           message:
-            "Format file tidak didukung. Upload gambar (JPEG, PNG, GIF) atau video (MP4, MOV).",
+            "Format file tidak didukung. Upload gambar (JPEG, PNG, GIF, WebP) atau video (MP4, MOV).",
         },
       },
       { status: 400 }

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { apiFetch } from "@/lib/api-client";
+import { invalidatePostsCache } from "@/lib/pwa-cache";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -160,6 +161,8 @@ export function DeletePostModal({
 
         result = res.data || { success: true, deletedPostId: post.id };
       }
+
+      await invalidatePostsCache();
 
       if (onSuccess) {
         onSuccess(result, post);
