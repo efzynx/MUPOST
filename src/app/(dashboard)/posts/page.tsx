@@ -3,7 +3,6 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api-client";
-import dynamic from "next/dynamic";
 import { invalidatePostsCache } from "@/lib/pwa-cache";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,15 +13,8 @@ import {
   TikTokLogo,
   ThreadsLogo,
 } from "@/components/ui/platform-icons";
-import type { DeletePostApiResponse } from "@/components/posts/delete-post-modal";
+import { DeletePostModal, type DeletePostApiResponse } from "@/components/posts/delete-post-modal";
 import { formatDeleteFeedbackMessage } from "@/lib/services/post-delete-helpers";
-
-const DeletePostModal = dynamic(
-  () => import("@/components/posts/delete-post-modal").then((mod) => mod.DeletePostModal),
-  {
-    ssr: false,
-  }
-);
 import {
   Plus,
   Filter,

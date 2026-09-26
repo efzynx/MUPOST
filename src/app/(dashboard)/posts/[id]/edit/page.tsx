@@ -17,6 +17,7 @@ import {
   TikTokLogo,
   ThreadsLogo,
 } from "@/components/ui/platform-icons";
+import { DeletePostModal } from "@/components/posts/delete-post-modal";
 import {
   ArrowLeft,
   Save,
@@ -76,13 +77,6 @@ const PreviewPanel = dynamic(
   () => import("@/components/preview/PreviewPanel").then((mod) => mod.PreviewPanel),
   {
     loading: () => <PreviewPanelSkeleton />,
-    ssr: false,
-  }
-);
-
-const DeletePostModal = dynamic(
-  () => import("@/components/posts/delete-post-modal").then((mod) => mod.DeletePostModal),
-  {
     ssr: false,
   }
 );
