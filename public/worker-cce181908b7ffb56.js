@@ -1,1 +1,0 @@
-addEventListener("message",e=>{if(e.data&&"INVALIDATE_CACHE"===e.data.type){let t=e.data.cacheName||"api-posts-cache";if("undefined"!=typeof caches){let a=caches.delete(t);"function"==typeof e.waitUntil&&e.waitUntil(a)}}});
