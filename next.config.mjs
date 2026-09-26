@@ -74,6 +74,7 @@ const withPWA = withPWAInit({
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: "standalone",
   allowedDevOrigins: [
     "cornfield-from-glamour.ngrok-free.dev",
     "*.ngrok-free.dev",

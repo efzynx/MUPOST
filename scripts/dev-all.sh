@@ -82,6 +82,7 @@ log  "Press Ctrl+C to stop all processes."
 echo ""
 
 # 1. Next.js development server
+export PORT="${PORT:-4829}"
 npm run dev 2>&1 | while IFS= read -r line; do
   echo -e "${PREFIX_WEB} ${line}"
 done &

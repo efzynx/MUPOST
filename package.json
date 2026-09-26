@@ -3,11 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p ${PORT:-4829}",
     "all": "npm run dev:all",
     "dev:all": "bash scripts/dev-all.sh",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -p ${PORT:-4829}",
     "lint": "next lint",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
@@ -21,7 +21,11 @@
     "db:migrate": "tsx --env-file=.env src/lib/db/migrate.ts",
     "worker": "tsx --env-file=.env src/workers/index.ts",
     "worker:publish": "tsx --env-file=.env src/workers/publish-worker.ts",
-    "worker:refresh": "tsx --env-file=.env src/workers/token-refresh-worker.ts"
+    "worker:refresh": "tsx --env-file=.env src/workers/token-refresh-worker.ts",
+    "docker:build": "docker compose build",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1135.0",
@@ -44,6 +48,7 @@
     "react": "^18",
     "react-dom": "^18",
     "tailwind-merge": "^3.7.0",
+    "tsx": "^4.23.15",
     "zod": "^4.6.5"
   },
   "devDependencies": {
@@ -57,6 +62,7 @@
     "@types/react-dom": "^18",
     "@types/supertest": "^7.2.1",
     "drizzle-kit": "^0.31.10",
+    "esbuild": "^0.28.2",
     "eslint": "^8",
     "eslint-config-next": "14.2.35",
     "eslint-config-prettier": "^10.1.8",

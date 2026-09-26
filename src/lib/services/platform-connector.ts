@@ -103,7 +103,7 @@ export class PlatformConnectorService {
     const state = randomUUID();
     const redis = getRedisClient();
 
-    const baseUrl = env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const baseUrl = env.NEXT_PUBLIC_APP_URL || "http://localhost:4829";
     const callbackUrl = redirectUri || `${baseUrl}/api/connect/meta/callback`;
 
     const statePayload = JSON.stringify({
@@ -159,7 +159,7 @@ export class PlatformConnectorService {
     }
 
     const { userId } = stateData;
-    const baseUrl = env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const baseUrl = env.NEXT_PUBLIC_APP_URL || "http://localhost:4829";
     const callbackUrl =
       redirectUri || stateData.redirectUri || `${baseUrl}/api/connect/meta/callback`;
 
@@ -732,7 +732,7 @@ export class PlatformConnectorService {
     const state = randomUUID();
     const redis = getRedisClient();
 
-    const baseUrl = env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const baseUrl = env.NEXT_PUBLIC_APP_URL || "http://localhost:4829";
     const callbackUrl = redirectUri || `${baseUrl}/api/connect/tiktok/callback`;
 
     const statePayload = JSON.stringify({
@@ -785,7 +785,7 @@ export class PlatformConnectorService {
     }
 
     const { userId } = stateData;
-    const baseUrl = env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const baseUrl = env.NEXT_PUBLIC_APP_URL || "http://localhost:4829";
     const callbackUrl =
       redirectUri || stateData.redirectUri || `${baseUrl}/api/connect/tiktok/callback`;
 
@@ -968,7 +968,7 @@ export class PlatformConnectorService {
     const redis = getRedisClient();
     const state = randomUUID();
     const baseUrl =
-      process.env.NEXT_PUBLIC_APP_URL || env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+      process.env.NEXT_PUBLIC_APP_URL || env.NEXT_PUBLIC_APP_URL || "http://localhost:4829";
     const callbackUrl = redirectUri || `${baseUrl}/api/connect/threads/callback`;
 
     const statePayload = JSON.stringify({
@@ -1024,7 +1024,7 @@ export class PlatformConnectorService {
 
     const { userId } = stateData;
     const baseUrl =
-      process.env.NEXT_PUBLIC_APP_URL || env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+      process.env.NEXT_PUBLIC_APP_URL || env.NEXT_PUBLIC_APP_URL || "http://localhost:4829";
     const callbackUrl =
       redirectUri || stateData.redirectUri || `${baseUrl}/api/connect/threads/callback`;
     const threadsAppId = process.env.THREADS_APP_ID || env.THREADS_APP_ID || env.META_APP_ID;

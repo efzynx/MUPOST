@@ -1,6 +1,23 @@
-# Mupost
+<p align="center">
+  <img src="public/logo.png" alt="Mupost Logo" width="140" />
+</p>
 
-Platform manajemen dan penjadwalan postingan multi-platform. Buat, jadwalkan, dan publikasikan konten ke Facebook, Instagram, TikTok, serta Threads dari satu dasbor terpadu — lengkap dengan antrian publikasi paralel berbasis BullMQ, import massal via CSV, dan dukungan Progressive Web App (PWA) untuk akses offline.
+<h1 align="center">Mupost</h1>
+
+<p align="center">
+  <strong>Multi-Platform Social Media Scheduler & Publisher</strong>
+  <br />
+  Publikasikan konten sekaligus ke Facebook, Instagram, TikTok, dan Threads dari satu dasbor terpadu — lengkap dengan antrean publikasi paralel berbasis BullMQ, Content Calendar, import massal CSV, PWA offline draft sync, dan dukungan kontainer Docker siap pakai.
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Next.js-14.2-black?logo=next.js" alt="Next.js 14" />
+  <img src="https://img.shields.io/badge/TypeScript-5-blue?logo=typescript" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker" alt="Docker" />
+  <img src="https://img.shields.io/badge/TailwindCSS-3.4-38B2AC?logo=tailwind-css" alt="Tailwind CSS" />
+  <img src="https://img.shields.io/badge/PostgreSQL-16-336791?logo=postgresql" alt="PostgreSQL" />
+  <img src="https://img.shields.io/badge/BullMQ-Redis-DC382D?logo=redis" alt="Redis & BullMQ" />
+</p>
 
 ---
 
@@ -8,8 +25,9 @@ Platform manajemen dan penjadwalan postingan multi-platform. Buat, jadwalkan, da
 
 - [Fitur Utama](#fitur-utama)
 - [Arsitektur Teknis](#arsitektur-teknis)
+- [Deployment Cepat dengan Docker (Direkomendasikan)](#deployment-cepat-dengan-docker-direkomendasikan)
 - [Prasyarat](#prasyarat)
-- [Instalasi](#instalasi)
+- [Instalasi Lokal](#instalasi-lokal)
 - [Konfigurasi Environment](#konfigurasi-environment)
 - [Setup Database](#setup-database)
 - [Menjalankan Aplikasi](#menjalankan-aplikasi)
@@ -25,18 +43,25 @@ Platform manajemen dan penjadwalan postingan multi-platform. Buat, jadwalkan, da
 
 ## Fitur Utama
 
-| Fitur                      | Keterangan                                                                                           |
-| -------------------------- | ---------------------------------------------------------------------------------------------------- |
-| **Multi-platform**         | Publikasi ke Facebook Page, Instagram, TikTok, dan Threads dari satu tempat                          |
-| **Penjadwalan otomatis**   | Jadwalkan post hingga 365 hari ke depan dengan toleransi eksekusi ≤ 60 detik                         |
-| **Publikasi paralel**      | Semua platform tujuan diproses secara bersamaan via BullMQ Worker                                    |
-| **Retry otomatis**         | Maksimal 3 percobaan ulang dengan exponential backoff (1, 2, 4 menit)                                |
-| **Import CSV massal**      | Upload hingga 500 baris sekaligus, laporan error per baris                                           |
-| **Preview real-time**      | Tampilan pratinjau posting sesuai tata letak setiap platform                                         |
-| **Refresh token otomatis** | Scanner token kedaluwarsa berjalan setiap 1 jam via BullMQ                                           |
-| **PWA & mode offline**     | Dapat diinstal sebagai aplikasi; data ter-cache tersedia saat offline                                |
-| **Keamanan**               | CSRF protection (double-submit cookie), JWT session, enkripsi token AES-256-GCM, rate limiting login |
-| **Upload media**           | Gambar (JPEG/PNG/GIF, maks 8 MB) dan video (MP4/MOV, maks 512 MB) ke S3/MinIO                        |
+| Fitur                             | Keterangan                                                                                      |
+| :-------------------------------- | :---------------------------------------------------------------------------------------------- |
+| **Multi-platform**                | Publikasi serentak ke Facebook Page, Instagram, TikTok, dan Threads dari satu tempat            |
+| **Sistem Tema Lengkap**           | Dukungan penuh mode Terang, Gelap, dan Auto (Sistem) dengan selektor minimalis                  |
+| **Content Calendar View**         | Alihkan tampilan postingan antara format Daftar (_List_) dan Kalender Bulanan/Mingguan          |
+| **Platform Constraint Validator** | Validasi batasan karakter dan media per platform secara interaktif dan _real-time_ saat menulis |
+| **BullMQ Queue Dashboard**        | Halaman `/admin/queues` untuk memantau status antrean worker dan tombol _Retry_ postingan gagal |
+| **Token Health & Expiry Alert**   | Peringatan dini masa kedaluwarsa token OAuth di Dashboard dan Settings Connections              |
+| **PWA Offline Draft Sync**        | Simpan dan kelola draf di IndexedDB saat offline, sinkronisasi otomatis saat online             |
+| **Mobile Bottom Bar Ergonomis**   | Navigasi mobile 5 tab ringkas dengan _Expandable Sheet Drawer_ untuk menu tambahan              |
+| **Penjadwalan otomatis**          | Jadwalkan post hingga 365 hari ke depan dengan toleransi eksekusi ≤ 60 detik                    |
+| **Publikasi paralel**             | Semua platform tujuan diproses secara bersamaan via BullMQ Worker terisolasi                    |
+| **Retry otomatis**                | Maksimal 3 percobaan ulang dengan exponential backoff (1, 2, 4 menit)                           |
+| **Import CSV massal**             | Upload hingga 500 baris sekaligus dengan validasi format dan laporan error per baris            |
+| **Preview real-time**             | Tampilan pratinjau posting sesuai tata letak resmi setiap platform                              |
+| **Refresh token otomatis**        | Background worker peremajaan token platform berjalan periodik via BullMQ                        |
+| **Keamanan**                      | CSRF protection, sesi JWT HTTP-only, enkripsi token OAuth AES-256-GCM                           |
+| **Upload media**                  | Gambar (JPEG/PNG/GIF, maks 8 MB) dan video (MP4/MOV, maks 512 MB) ke S3/MinIO                   |
+| **Docker & Compose Ready**        | Multi-stage image ultra-ringan (~95MB compressed), non-root user, dan auto-migration            |
 
 ---
 
@@ -72,28 +97,50 @@ Platform manajemen dan penjadwalan postingan multi-platform. Buat, jadwalkan, da
 
 ---
 
-## Prasyarat
+## Deployment Cepat dengan Docker (Direkomendasikan)
 
-Pastikan semua perangkat lunak berikut sudah terpasang sebelum memulai:
+Jika Anda sudah memasang **Docker** dan **Docker Compose**, Anda dapat menjalankan seluruh ekosistem Mupost (Web App, BullMQ Worker, PostgreSQL, Redis, dan MinIO S3) hanya dengan satu perintah:
 
-| Perangkat Lunak | Versi Minimum | Keterangan                                              |
-| --------------- | ------------- | ------------------------------------------------------- |
-| **Node.js**     | 20.x LTS      | Versi 22+ juga didukung                                 |
-| **npm**         | 10.x          | Atau package manager lain                               |
-| **PostgreSQL**  | 15+           | Database utama                                          |
-| **Redis**       | 7+            | Antrian BullMQ & rate limiting                          |
-| **MinIO / S3**  | —             | Object storage untuk media (opsional untuk development) |
-| **Docker**      | 24+           | Opsional, untuk menjalankan dependensi via container    |
+```bash
+# 1. Salin konfigurasi environment
+cp .env.example .env
+
+# 2. Jalankan seluruh layanan di latar belakang
+npm run docker:up
+# atau: docker compose up -d
+
+# 3. Pantau status dan log
+npm run docker:logs
+```
+
+Aplikasi akan otomatis melakukan migrasi database dan langsung siap diakses di:
+👉 **[http://localhost:4829](http://localhost:4829)**
+
+_Catatan: Image Docker Mupost (`mupost:latest`) dibuat dengan multi-stage build berukuran ultra-kompak (~95 MB terkompresi) dan menggunakan user non-root demi keamanan maksimal._
 
 ---
 
-## Instalasi
+## Prasyarat (Untuk Jalur Non-Docker)
+
+Jika ingin menjalankan aplikasi secara manual di mesin lokal:
+
+| Perangkat Lunak | Versi Minimum | Keterangan                           |
+| :-------------- | :------------ | :----------------------------------- |
+| **Node.js**     | 20.x LTS      | Versi 22+ sangat direkomendasikan    |
+| **npm**         | 10.x          | Package manager utama                |
+| **PostgreSQL**  | 15+           | Database relasional                  |
+| **Redis**       | 7+            | Antrean BullMQ & rate limiting       |
+| **MinIO / S3**  | —             | Object storage untuk media postingan |
+
+---
+
+## Instalasi Lokal
 
 ### 1. Clone Repository
 
 ```bash
-git clone https://github.com/your-username/mupost.git
-cd mupost
+git clone https://github.com/efzynx/MUPOST.git
+cd MUPOST
 ```
 
 ### 2. Instal Dependensi
@@ -102,34 +149,19 @@ cd mupost
 npm install
 ```
 
-### 3. Siapkan Dependensi Infrastruktur
+### 3. Siapkan Layanan Database & Redis
 
-**Opsi A — Menggunakan Docker (direkomendasikan untuk development):**
+Anda dapat menggunakan container database mandiri atau layanan lokal:
 
 ```bash
 # PostgreSQL
-docker run -d \
-  --name mupost-postgres \
-  -e POSTGRES_USER=postgres \
-  -e POSTGRES_PASSWORD=postgres \
-  -e POSTGRES_DB=mupost \
-  -p 5432:5432 \
-  postgres:15-alpine
+docker run -d --name mupost-postgres -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=mupost -p 5432:5432 postgres:16-alpine
 
 # Redis
-docker run -d \
-  --name mupost-redis \
-  -p 6379:6379 \
-  redis:7-alpine
+docker run -d --name mupost-redis -p 6379:6379 redis:7-alpine
 
-# MinIO (object storage)
-docker run -d \
-  --name mupost-minio \
-  -e MINIO_ROOT_USER=minioadmin \
-  -e MINIO_ROOT_PASSWORD=minioadmin \
-  -p 9000:9000 \
-  -p 9001:9001 \
-  quay.io/minio/minio server /data --console-address ":9001"
+# MinIO
+docker run -d --name mupost-minio -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin -p 9000:9000 -p 9001:9001 quay.io/minio/minio server /data --console-address ":9001"
 ```
 
 **Opsi B — Menggunakan instalasi lokal:**
@@ -260,7 +292,7 @@ Perintah ini menjalankan skrip orkestrasi `scripts/dev-all.sh` yang:
 - Menangani **graceful termination**: menekan `Ctrl+C` akan menghentikan semua proses anak dengan rapi (SIGTERM dulu, lalu SIGKILL setelah 5 detik jika belum berhenti)
 - Mendeteksi jika salah satu proses keluar secara tidak terduga dan menghentikan proses lainnya otomatis
 
-Aplikasi akan tersedia di [http://localhost:3000](http://localhost:3000).
+Aplikasi akan tersedia di [http://localhost:4829](http://localhost:4829).
 
 ### Alternatif: Menjalankan Proses Secara Terpisah
 
@@ -331,7 +363,7 @@ npm run test:watch
 npm run test:coverage
 ```
 
-**Hasil yang diharapkan:** 231 tests, 28 suites, 100% pass.
+**Hasil yang diharapkan:** 280 tests, 24 test suites, 100% pass.
 
 ### Integration Tests (Testcontainers)
 
@@ -371,7 +403,7 @@ npm run test:e2e:ui
 Untuk verifikasi performa dan skor PWA:
 
 ```bash
-# Pastikan server sudah berjalan di port 3000
+# Pastikan server sudah berjalan di port 4829
 npm run build && npm run start &
 sleep 5
 
@@ -386,31 +418,37 @@ Target skor: `Performance ≥ 90` dan `PWA = pass`.
 ## Perintah Tersedia
 
 ```bash
-# ── DEVELOPMENT ─────────────────────────────────────────────────────────────
-npm run dev:all          # Semua proses sekaligus: Next.js + Worker (DIREKOMENDASIKAN)
-npm run dev               # Next.js dev server saja (http://localhost:3000)
-npm run build             # Build production
-npm run start             # Jalankan production build
-npm run lint              # ESLint
-npm run format            # Prettier (format semua file)
-npm run format:check      # Prettier (cek tanpa mengubah)
+# ── DOCKER (OPERASIONAL CEPAT) ──────────────────────────────────────────────
+npm run docker:up        # Jalankan seluruh stack (Web, Worker, DB, Redis, S3)
+npm run docker:down      # Hentikan semua container
+npm run docker:logs      # Pantau log seluruh container
+npm run docker:build     # Build ulang image mupost:latest
+
+# ── DEVELOPMENT LOKAL ───────────────────────────────────────────────────────
+npm run dev:all          # Semua proses sekaligus: Next.js + Worker (port 4829)
+npm run dev              # Next.js dev server saja (http://localhost:4829)
+npm run build            # Build production (Next.js standalone + worker bundles)
+npm run start            # Jalankan production build (http://localhost:4829)
+npm run lint             # ESLint
+npm run format           # Prettier (format semua file)
+npm run format:check     # Prettier (cek tanpa mengubah)
 
 # ── WORKER ──────────────────────────────────────────────────────────────────
-npm run worker            # Semua worker sekaligus (DIREKOMENDASIKAN)
-npm run worker:publish    # Hanya publish-worker
-npm run worker:refresh    # Hanya token-refresh-worker
+npm run worker           # Semua worker sekaligus (DIREKOMENDASIKAN)
+npm run worker:publish   # Hanya publish-worker
+npm run worker:refresh   # Hanya token-refresh-worker
 
 # ── DATABASE ────────────────────────────────────────────────────────────────
-npm run db:generate       # Generate file migrasi baru dari perubahan schema
-npm run db:migrate        # Jalankan migrasi ke database
+npm run db:generate      # Generate file migrasi baru dari perubahan schema
+npm run db:migrate       # Jalankan migrasi ke database
 
 # ── TESTING ─────────────────────────────────────────────────────────────────
-npm test                  # Semua unit & property tests
-npm run test:watch        # Mode watch
-npm run test:coverage     # Dengan code coverage
-npm run test:e2e          # E2E tests Playwright (butuh server aktif)
-npm run test:e2e:ui       # E2E dengan browser terlihat
-npm run lhci              # Lighthouse CI (butuh server aktif)
+npm test                 # Semua unit & property tests (280 tests)
+npm run test:watch       # Mode watch
+npm run test:coverage    # Dengan code coverage
+npm run test:e2e         # E2E tests Playwright (butuh server aktif)
+npm run test:e2e:ui      # E2E dengan browser terlihat
+npm run lhci             # Lighthouse CI (butuh server aktif)
 ```
 
 ---
