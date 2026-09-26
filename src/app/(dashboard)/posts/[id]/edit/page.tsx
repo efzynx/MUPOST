@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { apiFetch } from "@/lib/api-client";
 import dynamic from "next/dynamic";
@@ -8,6 +8,15 @@ import { PreviewPanelSkeleton } from "@/components/preview/PreviewSkeleton";
 import type { SupportedPlatform } from "@/components/preview/PreviewPanel";
 import { compressImage, isCompressibleImage } from "@/lib/image-compressor";
 import { invalidatePostsCache } from "@/lib/pwa-cache";
+import { useOnlineStatus } from "@/components/OfflineBanner";
+import {
+  saveOfflineDraft,
+  getOfflineDraftById,
+  deleteOfflineDraft,
+  cacheConnectedAccounts,
+  getCachedConnectedAccounts,
+  getCachedPost,
+} from "@/lib/offline-drafts";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,6 +26,9 @@ import {
   TikTokLogo,
   ThreadsLogo,
 } from "@/components/ui/platform-icons";
+import { PlatformConstraintValidator } from "@/components/posts/platform-constraint-validator";
+import { validateMultiPlatformConstraints, type PlatformType } from "@/lib/platform-constraints";
+import { cn } from "@/lib/utils";
 import { DeletePostModal } from "@/components/posts/delete-post-modal";
 import {
   ArrowLeft,
@@ -89,6 +101,7 @@ export default function EditPostPage() {
   const routeParams = useParams();
   const postId = (routeParams?.id as string) || "";
   const router = useRouter();
+  const isOnline = useOnlineStatus();
 
   // Form state
   const [textContent, setTextContent] = useState("");
@@ -121,6 +134,60 @@ export default function EditPostPage() {
   // Load post and accounts
   const loadData = useCallback(async () => {
     setIsLoading(true);
+
+    // 1. Cek jika postId adalah draft offline lokal
+    if (postId.startsWith("offline_")) {
+      try {
+        const draft = await getOfflineDraftById(postId);
+        if (draft) {
+          const fakePost: PostData = {
+            id: draft.id,
+            textContent: draft.textContent,
+            mediaUrls: draft.mediaUrls,
+            status: "DRAFT",
+            scheduledAt: draft.scheduledAt,
+            publishedAt: null,
+            retryCount: draft.retryCount,
+            createdAt: draft.createdAt,
+            targets: draft.targetAccountIds.map((accId) => ({
+              id: `target_${accId}`,
+              connectedAccountId: accId,
+              platform: "META_PAGE",
+              status: "PENDING",
+              errorCode: null,
+              errorMessage: null,
+              retryCount: 0,
+            })),
+          };
+          setPost(fakePost);
+          setTextContent(draft.textContent);
+          setMediaUrls(draft.mediaUrls);
+          setSelectedAccounts(draft.targetAccountIds);
+          if (draft.scheduledAt) {
+            setUseSchedule(true);
+            setScheduledAt(new Date(draft.scheduledAt).toISOString().slice(0, 16));
+          }
+        }
+        const cachedAccs = await getCachedConnectedAccounts();
+        if (cachedAccs && cachedAccs.length > 0) {
+          setAccounts(cachedAccs);
+        }
+      } catch {
+        setFeedback({ type: "error", message: "Gagal memuat draft offline." });
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
+
+    // 2. Jika post server: cek apakah ada offline edit draft yang belum disinkronkan
+    let offlineDraftForPost: Awaited<ReturnType<typeof getOfflineDraftById>> = null;
+    try {
+      offlineDraftForPost = await getOfflineDraftById(postId);
+    } catch {
+      // Abaikan
+    }
+
     try {
       const [postRes, accRes] = await Promise.all([
         apiFetch<{ data: PostData }>(`/api/posts/${postId}`),
@@ -130,20 +197,117 @@ export default function EditPostPage() {
       if (postRes.ok && postRes.data?.data) {
         const p = postRes.data.data;
         setPost(p);
-        setTextContent(p.textContent);
-        setMediaUrls(p.mediaUrls ?? []);
-        setSelectedAccounts(p.targets.map((t) => t.connectedAccountId));
-        if (p.scheduledAt) {
-          setUseSchedule(true);
-          setScheduledAt(new Date(p.scheduledAt).toISOString().slice(0, 16));
+        // Jika ada perubahan draft offline lokal, utamakan perubahan lokal tersebut
+        if (offlineDraftForPost) {
+          setTextContent(offlineDraftForPost.textContent);
+          setMediaUrls(offlineDraftForPost.mediaUrls ?? []);
+          setSelectedAccounts(offlineDraftForPost.targetAccountIds);
+          if (offlineDraftForPost.scheduledAt) {
+            setUseSchedule(true);
+            setScheduledAt(new Date(offlineDraftForPost.scheduledAt).toISOString().slice(0, 16));
+          }
+        } else {
+          setTextContent(p.textContent);
+          setMediaUrls(p.mediaUrls ?? []);
+          setSelectedAccounts(p.targets.map((t) => t.connectedAccountId));
+          if (p.scheduledAt) {
+            setUseSchedule(true);
+            setScheduledAt(new Date(p.scheduledAt).toISOString().slice(0, 16));
+          }
+        }
+      } else {
+        // Fallback jika fetch post server gagal (misal sedang offline)
+        if (offlineDraftForPost) {
+          const fakePost: PostData = {
+            id: postId,
+            textContent: offlineDraftForPost.textContent,
+            mediaUrls: offlineDraftForPost.mediaUrls,
+            status: "DRAFT",
+            scheduledAt: offlineDraftForPost.scheduledAt,
+            publishedAt: null,
+            retryCount: offlineDraftForPost.retryCount,
+            createdAt: offlineDraftForPost.createdAt,
+            targets: offlineDraftForPost.targetAccountIds.map((accId) => ({
+              id: `target_${accId}`,
+              connectedAccountId: accId,
+              platform: "META_PAGE",
+              status: "PENDING",
+              errorCode: null,
+              errorMessage: null,
+              retryCount: 0,
+            })),
+          };
+          setPost(fakePost);
+          setTextContent(offlineDraftForPost.textContent);
+          setMediaUrls(offlineDraftForPost.mediaUrls);
+          setSelectedAccounts(offlineDraftForPost.targetAccountIds);
+          if (offlineDraftForPost.scheduledAt) {
+            setUseSchedule(true);
+            setScheduledAt(new Date(offlineDraftForPost.scheduledAt).toISOString().slice(0, 16));
+          }
+        } else {
+          const cached = await getCachedPost(postId);
+          if (cached) {
+            setPost(cached as unknown as PostData);
+            setTextContent(cached.textContent);
+            setMediaUrls(cached.mediaUrls ?? []);
+            setSelectedAccounts(cached.targets.map((t) => t.connectedAccountId));
+          }
         }
       }
 
       if (accRes.ok && Array.isArray(accRes.data?.data)) {
-        setAccounts(accRes.data.data.filter((a) => a.status === "ACTIVE"));
+        const active = accRes.data.data.filter((a) => a.status === "ACTIVE");
+        setAccounts(active);
+        await cacheConnectedAccounts(active);
+      } else {
+        const cachedAccs = await getCachedConnectedAccounts();
+        if (cachedAccs && cachedAccs.length > 0) {
+          setAccounts(cachedAccs);
+        }
       }
     } catch {
-      setFeedback({ type: "error", message: "Gagal memuat data post." });
+      // Fallback offline saat request jaringan gagal total
+      if (offlineDraftForPost) {
+        const fakePost: PostData = {
+          id: postId,
+          textContent: offlineDraftForPost.textContent,
+          mediaUrls: offlineDraftForPost.mediaUrls,
+          status: "DRAFT",
+          scheduledAt: offlineDraftForPost.scheduledAt,
+          publishedAt: null,
+          retryCount: offlineDraftForPost.retryCount,
+          createdAt: offlineDraftForPost.createdAt,
+          targets: offlineDraftForPost.targetAccountIds.map((accId) => ({
+            id: `target_${accId}`,
+            connectedAccountId: accId,
+            platform: "META_PAGE",
+            status: "PENDING",
+            errorCode: null,
+            errorMessage: null,
+            retryCount: 0,
+          })),
+        };
+        setPost(fakePost);
+        setTextContent(offlineDraftForPost.textContent);
+        setMediaUrls(offlineDraftForPost.mediaUrls);
+        setSelectedAccounts(offlineDraftForPost.targetAccountIds);
+      } else {
+        const cached = await getCachedPost(postId);
+        if (cached) {
+          setPost(cached as unknown as PostData);
+          setTextContent(cached.textContent);
+          setMediaUrls(cached.mediaUrls ?? []);
+          setSelectedAccounts(cached.targets.map((t) => t.connectedAccountId));
+        } else {
+          setFeedback({ type: "error", message: "Gagal memuat data post secara offline." });
+        }
+      }
+
+      const cachedAccs = await getCachedConnectedAccounts();
+      if (cachedAccs && cachedAccs.length > 0) {
+        setAccounts(cachedAccs);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -188,6 +352,27 @@ export default function EditPostPage() {
       setIsCompressing(false);
       setIsUploading(true);
 
+      // Jika offline, simpan media sebagai data URL agar tersimpan secara lokal di IndexedDB
+      if (!isOnline) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          if (typeof reader.result === "string") {
+            setMediaUrls((prev) => [...prev, reader.result as string]);
+            setFeedback({
+              type: "success",
+              message: "Media berhasil ditambahkan secara offline (tersimpan di perangkat).",
+            });
+          }
+          setIsUploading(false);
+        };
+        reader.onerror = () => {
+          setFeedback({ type: "error", message: "Gagal membaca file secara offline." });
+          setIsUploading(false);
+        };
+        reader.readAsDataURL(fileToUpload);
+        return;
+      }
+
       const formData = new FormData();
       formData.append("file", fileToUpload);
 
@@ -221,6 +406,16 @@ export default function EditPostPage() {
     setMediaUrls((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const targetPlatforms = useMemo(() => {
+    return Array.from(
+      new Set(accounts.filter((a) => selectedAccounts.includes(a.id)).map((a) => a.platform))
+    ) as PlatformType[];
+  }, [accounts, selectedAccounts]);
+
+  const platformValidation = useMemo(() => {
+    return validateMultiPlatformConstraints(targetPlatforms, textContent, mediaUrls);
+  }, [targetPlatforms, textContent, mediaUrls]);
+
   // Validation
   const canSave = textContent.trim().length > 0 && selectedAccounts.length > 0;
   const textOverLimit = textContent.length > MAX_TEXT;
@@ -230,6 +425,33 @@ export default function EditPostPage() {
     if (!canSave || textOverLimit || !isEditable) return;
     setIsSaving(true);
     setFeedback(null);
+
+    // Jika sedang offline atau mengedit draft offline lokal
+    if (!isOnline || postId.startsWith("offline_")) {
+      try {
+        await saveOfflineDraft({
+          id: postId,
+          postId: postId.startsWith("offline_") ? undefined : postId,
+          textContent,
+          mediaUrls: mediaUrls.length > 0 ? mediaUrls : [],
+          targetAccountIds: selectedAccounts,
+          scheduledAt: useSchedule && scheduledAt ? new Date(scheduledAt).toISOString() : null,
+          status: "DRAFT",
+        });
+        await invalidatePostsCache();
+        setFeedback({
+          type: "success",
+          message:
+            "Mode offline: Perubahan draft disimpan ke perangkat dan akan disinkronkan saat online.",
+        });
+        loadData();
+      } catch {
+        setFeedback({ type: "error", message: "Gagal menyimpan perubahan secara offline." });
+      } finally {
+        setIsSaving(false);
+      }
+      return;
+    }
 
     try {
       const res = await apiFetch(`/api/posts/${postId}`, {
@@ -243,6 +465,7 @@ export default function EditPostPage() {
       });
 
       if (res.ok) {
+        await deleteOfflineDraft(postId);
         await invalidatePostsCache();
         setFeedback({ type: "success", message: "Post berhasil disimpan." });
         loadData();
@@ -251,7 +474,25 @@ export default function EditPostPage() {
         setFeedback({ type: "error", message: errData?.error?.message ?? "Gagal menyimpan." });
       }
     } catch {
-      setFeedback({ type: "error", message: "Gagal menyimpan post." });
+      // Fallback offline saat request jaringan gagal
+      try {
+        await saveOfflineDraft({
+          id: postId,
+          postId: postId,
+          textContent,
+          mediaUrls: mediaUrls.length > 0 ? mediaUrls : [],
+          targetAccountIds: selectedAccounts,
+          scheduledAt: useSchedule && scheduledAt ? new Date(scheduledAt).toISOString() : null,
+          status: "DRAFT",
+        });
+        await invalidatePostsCache();
+        setFeedback({
+          type: "success",
+          message: "Koneksi terganggu. Perubahan draft berhasil diamankan ke penyimpanan lokal.",
+        });
+      } catch {
+        setFeedback({ type: "error", message: "Gagal menyimpan post." });
+      }
     } finally {
       setIsSaving(false);
     }
@@ -259,6 +500,22 @@ export default function EditPostPage() {
 
   // Publish now
   const handlePublishNow = async () => {
+    if (!canSave || textOverLimit || !isEditable) return;
+    if (!isOnline || postId.startsWith("offline_")) {
+      setFeedback({
+        type: "error",
+        message:
+          "Publikasi langsung memerlukan koneksi internet aktif. Simpan sebagai draft terlebih dahulu.",
+      });
+      return;
+    }
+    if (platformValidation.hasBlockingErrors) {
+      setFeedback({
+        type: "error",
+        message: `Tidak dapat mempublikasikan: ${platformValidation.blockingReasons[0]}`,
+      });
+      return;
+    }
     if (!window.confirm("Publikasikan post ini sekarang?")) return;
     setIsPublishing(true);
     setFeedback(null);
@@ -324,7 +581,15 @@ export default function EditPostPage() {
   };
 
   // Delete
-  const handleDelete = () => {
+  const handleDelete = async () => {
+    if (postId.startsWith("offline_")) {
+      if (window.confirm("Hapus draft offline ini dari perangkat?")) {
+        await deleteOfflineDraft(postId);
+        await invalidatePostsCache();
+        router.push("/posts");
+      }
+      return;
+    }
     setIsDeleteDialogOpen(true);
   };
 
@@ -512,15 +777,47 @@ export default function EditPostPage() {
                 disabled={!isEditable}
                 className="w-full bg-transparent text-sm text-zinc-100 placeholder-zinc-600 p-5 resize-none focus:outline-none leading-relaxed disabled:opacity-60"
               />
-              <div className="px-5 pb-3 flex items-center justify-between">
+              <div className="px-5 pb-3 flex flex-wrap items-center justify-between gap-2 border-t border-zinc-800/40 pt-2.5">
+                {/* Platform limit indicators */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {platformValidation.validations.map((v) => (
+                    <span
+                      key={v.platform}
+                      className={cn(
+                        "text-[10px] font-mono px-2 py-0.5 rounded font-medium flex items-center gap-1",
+                        v.charStatus === "exceeded"
+                          ? "bg-red-500/15 text-red-400 border border-red-500/30 font-bold"
+                          : v.charStatus === "warning"
+                            ? "bg-amber-500/15 text-amber-400 border border-amber-500/30 font-semibold"
+                            : "bg-zinc-800/80 text-zinc-400 border border-zinc-700/50"
+                      )}
+                    >
+                      <span>{v.platformName}:</span>
+                      <span>
+                        {v.charCount}/{v.maxCharacters.toLocaleString()}
+                      </span>
+                    </span>
+                  ))}
+                </div>
+
                 <span
-                  className={`text-[11px] font-mono ${textOverLimit ? "text-red-400 font-semibold" : "text-zinc-500"}`}
+                  className={cn(
+                    "text-[11px] font-mono ml-auto",
+                    textOverLimit ? "text-red-400 font-semibold" : "text-zinc-500"
+                  )}
                 >
                   {textContent.length.toLocaleString()} / {MAX_TEXT.toLocaleString()}
                 </span>
               </div>
             </CardContent>
           </Card>
+
+          {/* Realtime Platform Constraint Validator */}
+          <PlatformConstraintValidator
+            selectedPlatforms={targetPlatforms}
+            textContent={textContent}
+            mediaUrls={mediaUrls}
+          />
 
           {/* Media */}
           <Card className="border-zinc-800 bg-zinc-900/40 rounded-xl">
@@ -689,6 +986,10 @@ export default function EditPostPage() {
                 disabled={
                   !canSave ||
                   textOverLimit ||
+                  (platformValidation.hasBlockingErrors &&
+                    platformValidation.blockingReasons.some((r) =>
+                      r.includes("Melebihi batas karakter")
+                    )) ||
                   isSaving ||
                   isPublishing ||
                   isUploading ||
@@ -698,7 +999,11 @@ export default function EditPostPage() {
                 className="flex-1"
               >
                 <Save className="w-4 h-4" />
-                {useSchedule && scheduledAt ? "Simpan & Jadwalkan" : "Simpan"}
+                {!isOnline || postId.startsWith("offline_")
+                  ? "Simpan Draft (Offline)"
+                  : useSchedule && scheduledAt
+                    ? "Simpan & Jadwalkan"
+                    : "Simpan"}
               </Button>
               <Button
                 variant="primary"
@@ -706,11 +1011,21 @@ export default function EditPostPage() {
                 onClick={handlePublishNow}
                 disabled={
                   !canSave ||
+                  !isOnline ||
+                  postId.startsWith("offline_") ||
                   textOverLimit ||
+                  platformValidation.hasBlockingErrors ||
                   isPublishing ||
                   isSaving ||
                   isUploading ||
                   isCompressing
+                }
+                title={
+                  !isOnline || postId.startsWith("offline_")
+                    ? "Publikasi langsung memerlukan koneksi internet. Simpan sebagai draft terlebih dahulu."
+                    : platformValidation.hasBlockingErrors
+                      ? platformValidation.blockingReasons[0]
+                      : undefined
                 }
                 isLoading={isPublishing}
                 className="flex-1"
