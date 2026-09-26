@@ -7,6 +7,7 @@ import { apiFetch } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 import { LayoutDashboard, FileText, PlusSquare, UploadCloud, Share2, LogOut } from "lucide-react";
 import { MupostLogo } from "@/components/ui/logo";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 interface NavItem {
   label: string;
@@ -81,8 +82,12 @@ export function DashboardSidebar() {
         })}
       </nav>
 
-      {/* Footer Profile / Logout */}
-      <div className="p-3 border-t border-zinc-800/80">
+      {/* Footer Profile / Theme / Logout */}
+      <div className="p-3 border-t border-zinc-800/80 space-y-2">
+        <div className="flex items-center justify-between px-2.5 py-1">
+          <span className="text-xs font-medium text-zinc-400">Tema</span>
+          <ThemeToggle />
+        </div>
         <button
           onClick={handleLogout}
           disabled={isLoggingOut}
@@ -117,13 +122,16 @@ export function MobileHeader() {
         <span className="font-semibold text-sm tracking-tight text-zinc-100">Mupost</span>
       </div>
 
-      <button
-        onClick={handleLogout}
-        className="text-zinc-400 hover:text-zinc-200 p-2 rounded-md transition-colors"
-        aria-label="Keluar"
-      >
-        <LogOut className="w-4 h-4" />
-      </button>
+      <div className="flex items-center gap-1.5">
+        <ThemeToggle variant="compact" />
+        <button
+          onClick={handleLogout}
+          className="text-zinc-400 hover:text-zinc-200 p-2 rounded-md transition-colors"
+          aria-label="Keluar"
+        >
+          <LogOut className="w-4 h-4" />
+        </button>
+      </div>
     </header>
   );
 }

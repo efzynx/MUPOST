@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/card";
 import { Eye, EyeOff, AlertCircle } from "lucide-react";
 import { MupostLogo } from "@/components/ui/logo";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -60,7 +61,10 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col justify-center items-center px-4 py-12">
+    <div className="relative min-h-screen bg-zinc-950 text-zinc-100 flex flex-col justify-center items-center px-4 py-12">
+      <div className="absolute top-4 right-4">
+        <ThemeToggle variant="compact" />
+      </div>
       <div className="w-full max-w-sm">
         {/* Brand Header */}
         <div className="flex flex-col items-center mb-8 text-center">
