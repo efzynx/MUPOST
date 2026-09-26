@@ -83,12 +83,12 @@ export function PreviewPanel({
 
   if (selectedPlatforms.length === 0) {
     return (
-      <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-8 text-center flex flex-col items-center justify-center min-h-[360px]">
-        <div className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 mb-3">
+      <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-8 text-center flex flex-col items-center justify-center min-h-[360px]">
+        <div className="w-12 h-12 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-400 mb-3">
           <Eye className="w-6 h-6" />
         </div>
-        <h4 className="text-sm font-semibold text-slate-200">Pratinjau Postingan</h4>
-        <p className="text-xs text-slate-400 max-w-xs mt-1 leading-relaxed">
+        <h4 className="text-sm font-semibold text-zinc-200">Pratinjau Postingan</h4>
+        <p className="text-xs text-zinc-400 max-w-xs mt-1 leading-relaxed">
           Pilih minimal satu akun platform tujuan di samping untuk melihat pratinjau tampilan feed.
         </p>
       </div>
@@ -104,11 +104,11 @@ export function PreviewPanel({
   const missingMediaWarning = requiresMedia && !hasMedia;
 
   return (
-    <div className="flex flex-col gap-4 rounded-xl border border-slate-800 bg-slate-900/70 p-4 shadow-sm">
+    <div className="flex flex-col gap-4 rounded-xl border border-zinc-800 bg-zinc-900/70 p-4 shadow-sm">
       {/* Top Bar: Tabs and Character Status */}
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800 pb-3">
         {/* Platform Tabs */}
-        <div className="flex items-center gap-1.5 p-1 bg-slate-950/80 rounded-lg border border-slate-800">
+        <div className="flex items-center gap-1.5 p-1 bg-zinc-950/80 rounded-lg border border-zinc-800">
           {selectedPlatforms.map((p) => {
             const isActive = p === currentPlatform;
             return (
@@ -118,8 +118,8 @@ export function PreviewPanel({
                 onClick={() => setActivePlatform(p)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
                   isActive
-                    ? "bg-slate-800 text-white shadow-sm border border-slate-700"
-                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
+                    ? "bg-zinc-800 text-zinc-100 shadow-sm border border-zinc-700"
+                    : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50"
                 }`}
               >
                 {p === "facebook" && <FacebookLogo className="w-3.5 h-3.5" />}

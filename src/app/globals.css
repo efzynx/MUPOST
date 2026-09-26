@@ -4,6 +4,55 @@
 
 @layer base {
   :root {
+    color-scheme: light;
+
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+
+    --primary: 240 5.9% 10%;
+    --primary-foreground: 0 0% 98%;
+
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 240 5.9% 10%;
+
+    --radius: 0.625rem;
+
+    /* Semantic zinc mapping for light theme */
+    --zinc-50: 0 0% 9%;
+    --zinc-100: 240 10% 3.9%;
+    --zinc-200: 240 5.9% 16%;
+    --zinc-300: 240 5.2% 26%;
+    --zinc-400: 240 4% 42%;
+    --zinc-500: 240 3.8% 52%;
+    --zinc-600: 240 4.5% 65%;
+    --zinc-700: 240 4.9% 82%;
+    --zinc-800: 240 5.9% 89%;
+    --zinc-900: 0 0% 100%;
+    --zinc-950: 240 10% 98%;
+  }
+
+  .dark {
+    color-scheme: dark;
+
     --background: 240 10% 3.9%;
     --foreground: 0 0% 98%;
 
@@ -32,7 +81,18 @@
     --input: 240 3.7% 15.9%;
     --ring: 240 5% 64.9%;
 
-    --radius: 0.625rem;
+    /* Standard zinc mapping for dark theme */
+    --zinc-50: 0 0% 98%;
+    --zinc-100: 240 4.8% 95.9%;
+    --zinc-200: 240 5.9% 90%;
+    --zinc-300: 240 4.9% 83.9%;
+    --zinc-400: 240 5% 64.9%;
+    --zinc-500: 240 3.8% 46.1%;
+    --zinc-600: 240 5.2% 33.9%;
+    --zinc-700: 240 5.3% 26.1%;
+    --zinc-800: 240 3.7% 15.9%;
+    --zinc-900: 240 5.9% 10%;
+    --zinc-950: 240 10% 3.9%;
   }
 }
 
@@ -48,6 +108,22 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom scrollbar styling for light & dark mode */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--zinc-700));
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--zinc-600));
 }
 
 /* Tabular figures for schedules, timestamps, counters */
