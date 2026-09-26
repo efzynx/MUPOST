@@ -14,6 +14,9 @@ interface LiveSyncIndicatorProps {
   connectionMode?: ConnectionMode;
   onRefresh: () => void;
   className?: string;
+  offlineDraftsCount?: number;
+  isSyncingOfflineDrafts?: boolean;
+  onSyncOfflineDrafts?: () => void;
 }
 
 export function LiveSyncIndicator({
@@ -25,6 +28,9 @@ export function LiveSyncIndicator({
   connectionMode,
   onRefresh,
   className,
+  offlineDraftsCount = 0,
+  isSyncingOfflineDrafts = false,
+  onSyncOfflineDrafts,
 }: LiveSyncIndicatorProps) {
   const [timeAgo, setTimeAgo] = useState<string>("Baru saja");
 
@@ -78,18 +84,35 @@ export function LiveSyncIndicator({
         </span>
 
         <span className="text-[11px] font-medium text-zinc-300 truncate">
-          {hasActiveJobs ? (
+          {isSyncingOfflineDrafts ? (
+            <span className="text-cyan-400 flex items-center gap-1.5 font-semibold">
+              <RefreshCw className="w-3 h-3 animate-spin inline shrink-0 text-cyan-400" />
+              <span>Menyinkronkan draft ({offlineDraftsCount || 1})...</span>
+            </span>
+          ) : hasActiveJobs ? (
             <span className="text-cyan-400 flex items-center gap-1.5 font-semibold">
               <Loader2 className="w-3 h-3 animate-spin inline shrink-0" />
               <span>{isSseConnected ? "Memproses (Real-Time SSE)" : "Memproses Antrean (3s)"}</span>
             </span>
           ) : isLive ? (
-            <span className="text-zinc-400">
-              {isSseConnected ? "Real-time SSE" : "Live updates"}{" "}
+            <span className="text-zinc-400 flex items-center gap-1.5">
+              <span>{isSseConnected ? "Real-time SSE" : "Live updates"}</span>
+              {offlineDraftsCount > 0 && onSyncOfflineDrafts && (
+                <button
+                  type="button"
+                  onClick={onSyncOfflineDrafts}
+                  className="text-amber-400 hover:text-amber-300 font-semibold underline underline-offset-2 ml-1"
+                  title="Ada draft tersimpan offline. Klik untuk menyinkronkan."
+                >
+                  ({offlineDraftsCount} draft lokal)
+                </button>
+              )}
               <span className="hidden sm:inline">· {timeAgo}</span>
             </span>
           ) : connectionMode === "offline" ? (
-            <span className="text-amber-500/80">Offline</span>
+            <span className="text-amber-500/80 font-medium">
+              {offlineDraftsCount > 0 ? `Offline (${offlineDraftsCount} draft lokal)` : "Offline"}
+            </span>
           ) : (
             <span className="text-zinc-500">Live jeda</span>
           )}

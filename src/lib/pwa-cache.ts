@@ -61,3 +61,36 @@ export async function invalidatePostsCache(): Promise<boolean> {
 
   return invalidated;
 }
+
+/**
+ * Mendaftarkan event background sync ke Service Worker jika didukung oleh browser
+ * (misal Chrome, Edge, Chromium PWA).
+ */
+export async function registerBackgroundSync(tag = "sync-offline-drafts"): Promise<boolean> {
+  if (
+    typeof window === "undefined" ||
+    typeof navigator === "undefined" ||
+    !("serviceWorker" in navigator)
+  ) {
+    return false;
+  }
+
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    // Cek ketersediaan SyncManager
+    if (
+      "sync" in registration &&
+      typeof (registration as unknown as { sync: { register: (tag: string) => Promise<void> } })
+        .sync.register === "function"
+    ) {
+      await (
+        registration as unknown as { sync: { register: (tag: string) => Promise<void> } }
+      ).sync.register(tag);
+      return true;
+    }
+  } catch {
+    // Abaikan error jika background sync tidak didukung
+  }
+
+  return false;
+}

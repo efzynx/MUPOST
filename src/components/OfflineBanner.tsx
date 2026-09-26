@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { WifiOff, CheckCircle2, RefreshCw, X } from "lucide-react";
+import { WifiOff, CheckCircle2, RefreshCw, X, AlertCircle, CloudUpload } from "lucide-react";
+import { useOfflineDraftSync } from "@/lib/hooks/use-offline-draft-sync";
 
 /**
  * Hook untuk memantau status koneksi internet browser secara reaktif.
@@ -32,10 +33,11 @@ export function useOnlineStatus(): boolean {
 
 /**
  * Komponen Banner persisten & reaktif di bagian atas layar.
- * Memberikan deteksi konektivitas real-time dan instruksi jelas saat offline maupun saat kembali online.
+ * Menampilkan deteksi konektivitas, status draft offline, dan background synchronization.
  */
 export function OfflineBanner() {
-  const isOnline = useOnlineStatus();
+  const { isOnline, pendingCount, isSyncing, lastSyncResult, syncNow } = useOfflineDraftSync();
+
   const [showReconnected, setShowReconnected] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
   const wasOfflineRef = useRef(false);
@@ -57,7 +59,7 @@ export function OfflineBanner() {
 
       dismissTimerRef.current = setTimeout(() => {
         setShowReconnected(false);
-      }, 5000);
+      }, 6000);
     }
 
     return () => {
@@ -98,7 +100,33 @@ export function OfflineBanner() {
     }
   }, []);
 
-  // 1. Tampilan saat Offline
+  // 1. Tampilan saat Sedang Sinkronisasi di Background (Online & isSyncing)
+  if (isOnline && isSyncing) {
+    return (
+      <div
+        role="status"
+        aria-live="polite"
+        data-testid="syncing-banner"
+        className="sticky top-0 z-50 w-full bg-cyan-700 text-white px-4 py-2.5 shadow-md flex items-center justify-between gap-3 text-xs sm:text-sm font-medium transition-all animate-in fade-in slide-in-from-top-1"
+      >
+        <div className="flex items-center gap-2.5 min-w-0">
+          <RefreshCw className="w-4 h-4 shrink-0 animate-spin text-cyan-200" />
+          <div className="leading-tight">
+            <span className="font-semibold">Sinkronisasi Background Aktif</span>
+            <span className="hidden sm:inline"> — </span>
+            <span className="text-cyan-100 block sm:inline mt-0.5 sm:mt-0">
+              Menyinkronkan {pendingCount > 0 ? `${pendingCount} ` : ""}draft offline ke server...
+            </span>
+          </div>
+        </div>
+        <span className="text-[11px] font-mono bg-cyan-800/80 px-2 py-0.5 rounded text-cyan-200 shrink-0">
+          Syncing...
+        </span>
+      </div>
+    );
+  }
+
+  // 2. Tampilan saat Offline
   if (!isOnline) {
     return (
       <div
@@ -110,30 +138,72 @@ export function OfflineBanner() {
         <div className="flex items-center gap-2.5 min-w-0">
           <WifiOff className="w-4 h-4 shrink-0 animate-pulse text-amber-950" />
           <div className="leading-tight">
-            <span className="font-semibold">Mode Offline Aktif</span>
-            <span className="hidden sm:inline"> — Menampilkan data dari cache lokal. </span>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-semibold">Mode Offline Aktif</span>
+              {pendingCount > 0 && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-600/40 text-amber-950 border border-amber-600/50">
+                  {pendingCount} Draft Tersimpan Lokal
+                </span>
+              )}
+            </div>
             <span className="text-amber-900 block sm:inline mt-0.5 sm:mt-0 font-normal sm:font-medium">
-              Fitur pembuatan, pengeditan, dan publikasi dinonaktifkan sementara. Periksa koneksi
-              internet Anda.
+              Draft post tetap dapat dibuat &amp; diedit di perangkat ini. Sinkronisasi otomatis
+              berjalan saat online.
+            </span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={handleCheckConnection}
+            disabled={isChecking}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-amber-600/30 hover:bg-amber-600/40 text-amber-950 border border-amber-600/50 text-xs font-semibold transition-colors disabled:opacity-50 touch-manipulation"
+          >
+            <RefreshCw className={`w-3 h-3 ${isChecking ? "animate-spin" : ""}`} />
+            <span>{isChecking ? "Memeriksa..." : "Periksa Koneksi"}</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // 3. Tampilan jika Sinkronisasi memiliki kegagalan saat online
+  if (isOnline && lastSyncResult && lastSyncResult.failed > 0 && pendingCount > 0) {
+    return (
+      <div
+        role="alert"
+        aria-live="assertive"
+        data-testid="sync-error-banner"
+        className="sticky top-0 z-50 w-full bg-amber-600 text-amber-50 px-4 py-2.5 shadow-md flex items-center justify-between gap-3 text-xs sm:text-sm font-medium transition-all animate-in fade-in"
+      >
+        <div className="flex items-center gap-2.5 min-w-0">
+          <AlertCircle className="w-4 h-4 shrink-0 text-amber-200" />
+          <div className="leading-tight">
+            <span className="font-semibold">Sinkronisasi Tertunda</span>
+            <span className="hidden sm:inline"> — </span>
+            <span className="text-amber-100 block sm:inline mt-0.5 sm:mt-0">
+              {lastSyncResult.failed} draft offline belum berhasil disinkronkan ke server.
             </span>
           </div>
         </div>
 
         <button
           type="button"
-          onClick={handleCheckConnection}
-          disabled={isChecking}
-          className="shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded bg-amber-600/30 hover:bg-amber-600/40 text-amber-950 border border-amber-600/50 text-xs font-semibold transition-colors disabled:opacity-50"
+          onClick={() => syncNow()}
+          className="shrink-0 flex items-center gap-1 px-2.5 py-1 rounded bg-amber-700/60 hover:bg-amber-700 text-white text-xs font-semibold transition-colors"
         >
-          <RefreshCw className={`w-3 h-3 ${isChecking ? "animate-spin" : ""}`} />
-          <span>{isChecking ? "Memeriksa..." : "Periksa Koneksi"}</span>
+          <RefreshCw className="w-3 h-3" />
+          <span>Coba Lagi</span>
         </button>
       </div>
     );
   }
 
-  // 2. Tampilan saat Kembali Online (auto-dismiss dalam 5 detik)
+  // 4. Tampilan saat Kembali Online (auto-dismiss dalam 6 detik)
   if (showReconnected) {
+    const hasSyncedDrafts = lastSyncResult && lastSyncResult.succeeded > 0;
+
     return (
       <div
         role="status"
@@ -142,12 +212,20 @@ export function OfflineBanner() {
         className="sticky top-0 z-50 w-full bg-emerald-600 text-white px-4 py-2.5 shadow-md flex items-center justify-between gap-3 text-xs sm:text-sm font-medium transition-all animate-in fade-in slide-in-from-top-1 duration-300"
       >
         <div className="flex items-center gap-2.5 min-w-0">
-          <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-200" />
+          {hasSyncedDrafts ? (
+            <CloudUpload className="w-4 h-4 shrink-0 text-emerald-200" />
+          ) : (
+            <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-200" />
+          )}
           <div className="leading-tight">
-            <span className="font-semibold">Koneksi Internet Pulih</span>
+            <span className="font-semibold">
+              {hasSyncedDrafts ? "Koneksi Pulih & Draft Tersinkronkan" : "Koneksi Internet Pulih"}
+            </span>
             <span className="hidden sm:inline"> — </span>
             <span className="text-emerald-100 block sm:inline mt-0.5 sm:mt-0">
-              Semua fitur kini aktif kembali. Data terbaru siap disinkronkan.
+              {hasSyncedDrafts
+                ? `${lastSyncResult.succeeded} draft offline berhasil disinkronkan ke server.`
+                : "Semua fitur kini aktif kembali. Data terbaru siap disinkronkan."}
             </span>
           </div>
         </div>

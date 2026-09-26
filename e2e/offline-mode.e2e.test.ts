@@ -70,7 +70,10 @@ test.describe("E2E 16.5: Offline Mode", () => {
     await context.setOffline(false);
   });
 
-  test("Saat offline: tombol Buat Post di-disabled", async ({ page, context }) => {
+  test("Saat offline: tombol Buat Post tetap aktif untuk membuat draft offline", async ({
+    page,
+    context,
+  }) => {
     await page.goto("/posts");
     await page.waitForLoadState("networkidle");
 
@@ -91,7 +94,7 @@ test.describe("E2E 16.5: Offline Mode", () => {
 
     if (createExists) {
       const isDisabled = await createButton.isDisabled();
-      expect(isDisabled).toBe(true);
+      expect(isDisabled).toBe(false);
     } else {
       const bodyVisible = await page.locator("body").isVisible();
       expect(bodyVisible).toBe(true);
