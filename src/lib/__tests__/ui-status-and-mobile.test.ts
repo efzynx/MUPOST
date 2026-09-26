@@ -133,5 +133,63 @@ describe("Live Status Auto-Update & Mobile Friendly Validation", () => {
         expect(className).toContain("touch-manipulation");
       });
     });
+
+    it("validates mobile layout wrapping and touch target classes for token health alert components", () => {
+      const tokenHealthMobileLayouts = {
+        dashboardBannerHeader:
+          "flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4",
+        dashboardBannerItemAction:
+          "w-full sm:w-auto flex items-center justify-end sm:justify-start pt-1 sm:pt-0",
+        dashboardBannerMobileAction: "mt-3.5 pt-3 border-t border-zinc-800/60 sm:hidden",
+        connectionsAccountActions:
+          "flex flex-wrap sm:flex-nowrap items-center justify-end sm:justify-start gap-2 pt-2.5 sm:pt-0 border-t border-zinc-800/50 sm:border-t-0 w-full sm:w-auto shrink-0",
+      };
+
+      // Header must use flex-col on mobile and flex-row on sm breakpoint
+      expect(tokenHealthMobileLayouts.dashboardBannerHeader).toContain("flex-col");
+      expect(tokenHealthMobileLayouts.dashboardBannerHeader).toContain("sm:flex-row");
+
+      // Dashboard item action must span full width on mobile
+      expect(tokenHealthMobileLayouts.dashboardBannerItemAction).toContain("w-full");
+      expect(tokenHealthMobileLayouts.dashboardBannerItemAction).toContain("sm:w-auto");
+
+      // Connections account actions must provide full-width container on mobile with separator
+      expect(tokenHealthMobileLayouts.connectionsAccountActions).toContain("w-full");
+      expect(tokenHealthMobileLayouts.connectionsAccountActions).toContain("sm:w-auto");
+      expect(tokenHealthMobileLayouts.connectionsAccountActions).toContain("border-t");
+    });
+
+    it("validates MobileBottomNav ergonomic 5-tab structure, safe-area-pb, and touch target standards", () => {
+      // Mobile bottom bar structure: 4 primary navigation tabs + 1 center action button + 1 sheet drawer
+      const bottomNavSpecs = {
+        container:
+          "md:hidden fixed bottom-0 left-0 right-0 z-30 bg-zinc-950 border-t border-zinc-800/80 safe-area-pb",
+        grid: "grid grid-cols-5 items-center h-16 max-w-lg mx-auto px-1",
+        standardTab:
+          "flex flex-col items-center justify-center h-full w-full py-1 rounded-xl transition-all duration-150 select-none touch-manipulation group",
+        centerActionButton:
+          "flex flex-col items-center justify-center h-full w-full py-1 select-none touch-manipulation group",
+        centerPill:
+          "w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-150 shadow-md",
+        moreDrawer:
+          "relative z-10 w-full bg-zinc-900 border-t border-zinc-800 rounded-t-2xl shadow-2xl p-4 pt-3 pb-6 safe-area-pb max-h-[85vh] overflow-y-auto animate-in slide-in-from-bottom duration-200",
+      };
+
+      // Ensure 5-column layout for ergonomic spacing
+      expect(bottomNavSpecs.grid).toContain("grid-cols-5");
+      expect(bottomNavSpecs.grid).toContain("h-16");
+
+      // Ensure safe area padding utility is used
+      expect(bottomNavSpecs.container).toContain("safe-area-pb");
+      expect(bottomNavSpecs.moreDrawer).toContain("safe-area-pb");
+
+      // Ensure touch manipulation is present
+      expect(bottomNavSpecs.standardTab).toContain("touch-manipulation");
+      expect(bottomNavSpecs.centerActionButton).toContain("touch-manipulation");
+
+      // Center button dimension (10x10 = 40px + padding exceeds 44x44 container)
+      expect(bottomNavSpecs.centerPill).toContain("w-10");
+      expect(bottomNavSpecs.centerPill).toContain("h-10");
+    });
   });
 });

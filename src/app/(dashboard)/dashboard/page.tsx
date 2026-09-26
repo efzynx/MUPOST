@@ -20,6 +20,8 @@ import {
   ArrowUpRight,
   CheckCircle2,
   AlertCircle,
+  AlertTriangle,
+  RotateCcw,
   Clock,
   Layers,
   FileText,
@@ -84,8 +86,32 @@ interface DashboardStats {
   };
 }
 
+interface TokenAlert {
+  accountId: string;
+  platform: "META_PAGE" | "INSTAGRAM" | "TIKTOK" | "THREADS";
+  accountName: string;
+  severity: "NONE" | "WARNING" | "CRITICAL";
+  healthStatus: "HEALTHY" | "EXPIRING_SOON" | "EXPIRED" | "NEEDS_REAUTH";
+  message: string;
+  daysRemaining: number | null;
+  action: "REAUTH" | "REFRESH";
+  canAutoRefresh: boolean;
+}
+
+interface TokenHealthSummary {
+  totalAccounts: number;
+  healthyCount: number;
+  expiringSoonCount: number;
+  expiredCount: number;
+  needsReauthCount: number;
+  actionRequiredCount: number;
+  overallStatus: "HEALTHY" | "WARNING" | "CRITICAL";
+  alerts: TokenAlert[];
+}
+
 interface DashboardData {
   accounts: ConnectedAccount[];
+  tokenHealth?: TokenHealthSummary;
   stats: DashboardStats;
   recentPosts: PostItem[];
 }
@@ -207,6 +233,28 @@ export default function DashboardPage() {
   const recentPosts = dashboardData?.recentPosts ?? [];
   const hasConnectedAccounts = accounts.length > 0;
   const activeAccounts = accounts.filter((a) => a.status === "ACTIVE");
+
+  const [refreshingAccountId, setRefreshingAccountId] = useState<string | null>(null);
+
+  const handleRefreshToken = async (accountId: string) => {
+    setRefreshingAccountId(accountId);
+    try {
+      const res = await apiFetch<{ success: boolean; message?: string }>(
+        "/api/connect/health/refresh",
+        {
+          method: "POST",
+          body: JSON.stringify({ accountId }),
+        }
+      );
+      if (res.ok) {
+        await loadStats(true);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setRefreshingAccountId(null);
+    }
+  };
 
   // Track real-time transitions on recent posts
   const { transitioningIds, recentNotifications, dismissNotification } =
@@ -332,7 +380,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <Link href="/posts/new" className="group block">
           <Card className="h-full hover:border-zinc-700 transition-colors border-zinc-800/80 bg-zinc-900/40 active:scale-[0.99] touch-manipulation">
-            <CardHeader className="p-4 sm:p-4.5">
+            <CardHeader className="p-4 sm:p-5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-200 shrink-0">
@@ -355,7 +403,7 @@ export default function DashboardPage() {
 
         <Link href="/posts/import" className="group block">
           <Card className="h-full hover:border-zinc-700 transition-colors border-zinc-800/80 bg-zinc-900/40 active:scale-[0.99] touch-manipulation">
-            <CardHeader className="p-4 sm:p-4.5">
+            <CardHeader className="p-4 sm:p-5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-200 shrink-0">
@@ -378,7 +426,7 @@ export default function DashboardPage() {
 
         <Link href="/settings/connections" className="group block">
           <Card className="h-full hover:border-zinc-700 transition-colors border-zinc-800/80 bg-zinc-900/40 active:scale-[0.99] touch-manipulation">
-            <CardHeader className="p-4 sm:p-4.5">
+            <CardHeader className="p-4 sm:p-5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-200 shrink-0">
@@ -399,6 +447,125 @@ export default function DashboardPage() {
           </Card>
         </Link>
       </div>
+
+      {/* PROACTIVE TOKEN EXPIRATION & RE-AUTH ALERT */}
+      {dashboardData?.tokenHealth &&
+        dashboardData.tokenHealth.alerts &&
+        dashboardData.tokenHealth.alerts.length > 0 && (
+          <div
+            className={cn(
+              "rounded-2xl border p-4 sm:p-5 shadow-lg transition-all",
+              dashboardData.tokenHealth.overallStatus === "CRITICAL"
+                ? "bg-red-950/30 border-red-800/60 shadow-red-950/20"
+                : "bg-amber-950/30 border-amber-800/60 shadow-amber-950/20"
+            )}
+          >
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
+              <div className="flex items-start gap-3 min-w-0 flex-1">
+                <div
+                  className={cn(
+                    "w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5",
+                    dashboardData.tokenHealth.overallStatus === "CRITICAL"
+                      ? "bg-red-500/10 border border-red-500/20 text-red-400"
+                      : "bg-amber-500/10 border border-amber-500/20 text-amber-400"
+                  )}
+                >
+                  <AlertTriangle className="w-4 h-4" />
+                </div>
+                <div className="space-y-1.5 min-w-0 flex-1">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2">
+                    <h3 className="text-sm font-semibold text-zinc-100 leading-snug">
+                      Peringatan Masa Berlaku OAuth Token
+                    </h3>
+                    <div className="flex items-center">
+                      <Badge
+                        variant={
+                          dashboardData.tokenHealth.overallStatus === "CRITICAL"
+                            ? "failed"
+                            : "scheduled"
+                        }
+                        className="w-fit text-[11px] shrink-0"
+                      >
+                        {dashboardData.tokenHealth.actionRequiredCount} Perlu Tindakan
+                      </Badge>
+                    </div>
+                  </div>
+                  <p className="text-xs text-zinc-300 leading-relaxed">
+                    Beberapa akun media sosial mendekati masa kedaluwarsa (&lt; 7 hari) atau
+                    membutuhkan autentikasi ulang untuk kelancaran publikasi.
+                  </p>
+                </div>
+              </div>
+
+              <Link href="/settings/connections" className="hidden sm:inline-flex shrink-0">
+                <Button variant="outline" size="sm">
+                  Kelola di Koneksi Akun
+                </Button>
+              </Link>
+            </div>
+
+            <div className="mt-4 divide-y divide-zinc-800/60 border-t border-zinc-800/60">
+              {dashboardData.tokenHealth.alerts.map((alert) => (
+                <div
+                  key={alert.accountId}
+                  className="py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+                >
+                  <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
+                    <div className="shrink-0 mt-0.5 sm:mt-0 p-1.5 rounded-lg bg-zinc-800/60 border border-zinc-700/50 flex items-center justify-center">
+                      {getPlatformIcon(alert.platform, "w-4 h-4")}
+                    </div>
+                    <div className="min-w-0 flex-1 space-y-0.5">
+                      <span className="text-xs font-semibold text-zinc-200 block truncate">
+                        {alert.accountName}
+                      </span>
+                      <p className="text-[11px] text-zinc-400 leading-normal break-words">
+                        {alert.message}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="w-full sm:w-auto flex items-center justify-end sm:justify-start pt-1 sm:pt-0">
+                    {alert.action === "REFRESH" ? (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        isLoading={refreshingAccountId === alert.accountId}
+                        onClick={() => handleRefreshToken(alert.accountId)}
+                        className="w-full sm:w-auto text-xs min-h-[38px] sm:min-h-0 sm:h-7 px-3 sm:px-2.5 justify-center font-medium"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+                        Perbarui Token
+                      </Button>
+                    ) : (
+                      <Link href="/settings/connections" className="w-full sm:w-auto block">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full sm:w-auto text-xs min-h-[38px] sm:min-h-0 sm:h-7 px-3 sm:px-2.5 justify-center font-medium"
+                        >
+                          Hubungkan Ulang
+                        </Button>
+                      </Link>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Mobile Action Link: Kelola di Koneksi Akun */}
+            <div className="mt-3.5 pt-3 border-t border-zinc-800/60 sm:hidden">
+              <Link href="/settings/connections" className="block w-full">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-xs justify-center min-h-[38px] font-medium"
+                >
+                  Kelola di Koneksi Akun
+                </Button>
+              </Link>
+            </div>
+          </div>
+        )}
 
       {/* KONDISIONAL: JIKA SUDAH ADA AKUN TERHUBUNG -> TAMPILKAN DASHBOARD STATISTIK */}
       {hasConnectedAccounts ? (
