@@ -449,6 +449,12 @@ npm run test:coverage    # Dengan code coverage
 npm run test:e2e         # E2E tests Playwright (butuh server aktif)
 npm run test:e2e:ui      # E2E dengan browser terlihat
 npm run lhci             # Lighthouse CI (butuh server aktif)
+
+# ── GRAPHIFY (KNOWLEDGE GRAPH) ──────────────────────────────────────────────
+npm run graphify:extract # Ekstraksi AST code & generate graphify-out/
+npm run graphify:update  # Update AST graph setelah modifikasi kode (tanpa LLM)
+graphify query "<q>"     # Query jalur dependensi & arsitektur proyek
+graphify explain "<X>"   # Penjelasan terfokus komponen/modul dan tetangganya
 ```
 
 ---

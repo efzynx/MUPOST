@@ -50,4 +50,9 @@ skills-lock.json
 test-results/
 e2e-report/
 
+# graphify
+graphify-out/cache/
+graphify-out/20*/
+
+
 
