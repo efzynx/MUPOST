@@ -174,12 +174,15 @@ describe("DELETE /api/posts/[id]", () => {
       deletedPostId: "post-no-sync",
     });
 
-    const req = new NextRequest("http://localhost:3000/api/posts/post-no-sync?deleteOnPlatforms=false", {
-      method: "DELETE",
-      headers: {
-        cookie: `${SESSION_COOKIE_NAME}=valid-token`,
-      },
-    });
+    const req = new NextRequest(
+      "http://localhost:3000/api/posts/post-no-sync?deleteOnPlatforms=false",
+      {
+        method: "DELETE",
+        headers: {
+          cookie: `${SESSION_COOKIE_NAME}=valid-token`,
+        },
+      }
+    );
 
     const res = await DELETE(req, { params: Promise.resolve({ id: "post-no-sync" }) });
     expect(res.status).toBe(200);

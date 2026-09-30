@@ -1261,9 +1261,11 @@ describe("QC Validation: End-to-End & Edge Cases for Post Deletion", () => {
 
       mockedDb.select.mockReturnValueOnce({
         from: jest.fn().mockReturnThis(),
-        where: jest.fn().mockResolvedValue([
-          { id: "acc-shared", platform: "META_PAGE", accessTokenEnc: "enc-shared" },
-        ]),
+        where: jest
+          .fn()
+          .mockResolvedValue([
+            { id: "acc-shared", platform: "META_PAGE", accessTokenEnc: "enc-shared" },
+          ]),
       });
 
       const deleteFromPlatformSpy = jest
@@ -1293,9 +1295,9 @@ describe("QC Validation: End-to-End & Edge Cases for Post Deletion", () => {
       mockedDb.select.mockReturnValueOnce({
         from: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
-        limit: jest.fn().mockResolvedValue([
-          { id: "post-null-pid", userId: "user-1", status: "PUBLISHED" },
-        ]),
+        limit: jest
+          .fn()
+          .mockResolvedValue([{ id: "post-null-pid", userId: "user-1", status: "PUBLISHED" }]),
       });
 
       mockedDb.select.mockReturnValueOnce({
@@ -1332,9 +1334,9 @@ describe("QC Validation: End-to-End & Edge Cases for Post Deletion", () => {
       mockedDb.select.mockReturnValueOnce({
         from: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
-        limit: jest.fn().mockResolvedValue([
-          { id: "post-no-sync", userId: "user-1", status: "PUBLISHED" },
-        ]),
+        limit: jest
+          .fn()
+          .mockResolvedValue([{ id: "post-no-sync", userId: "user-1", status: "PUBLISHED" }]),
       });
 
       mockedDb.select.mockReturnValueOnce({
@@ -1394,10 +1396,13 @@ describe("QC Validation: End-to-End & Edge Cases for Post Deletion", () => {
         .spyOn(PostManager.prototype, "deletePost")
         .mockResolvedValueOnce({ success: true, deletedPostId: "p-false" });
 
-      const req = new NextRequest("http://localhost:3000/api/posts/p-false?deleteOnPlatforms=false", {
-        method: "DELETE",
-        headers: { cookie: `${SESSION_COOKIE_NAME}=token` },
-      });
+      const req = new NextRequest(
+        "http://localhost:3000/api/posts/p-false?deleteOnPlatforms=false",
+        {
+          method: "DELETE",
+          headers: { cookie: `${SESSION_COOKIE_NAME}=token` },
+        }
+      );
 
       const res = await DELETE(req, { params: Promise.resolve({ id: "p-false" }) });
       expect(res.status).toBe(200);
@@ -1441,7 +1446,9 @@ describe("QC Validation: End-to-End & Edge Cases for Post Deletion", () => {
 
       const res = await DELETE(req, { params: Promise.resolve({ id: "p-bad-json" }) });
       expect(res.status).toBe(200);
-      expect(deletePostSpy).toHaveBeenCalledWith("user-1", "p-bad-json", { deleteOnPlatforms: false });
+      expect(deletePostSpy).toHaveBeenCalledWith("user-1", "p-bad-json", {
+        deleteOnPlatforms: false,
+      });
     });
 
     it("should return 401 when session cookie is completely missing", async () => {
@@ -1624,12 +1631,8 @@ describe("QC Validation: End-to-End & Edge Cases for Post Deletion", () => {
       expect(result.type).toBe("info");
       expect(result.message).toContain("Postingan berhasil dihapus dari Mupost.");
       expect(result.message).toContain("Konten di Facebook Page berhasil dihapus.");
-      expect(result.message).toContain(
-        "Konten di Threads sudah dihapus sebelumnya dari platform."
-      );
-      expect(result.message).toContain(
-        "Instagram tidak mendukung penghapusan otomatis via API."
-      );
+      expect(result.message).toContain("Konten di Threads sudah dihapus sebelumnya dari platform.");
+      expect(result.message).toContain("Instagram tidak mendukung penghapusan otomatis via API.");
       expect(result.message).toContain("Gagal menghapus konten di TikTok.");
     });
 
