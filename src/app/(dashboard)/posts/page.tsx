@@ -264,6 +264,24 @@ function PostsListContent() {
     loadPosts(false);
   }, [loadPosts]);
 
+  // Tangkap flash feedback dari sessionStorage (misal dari halaman edit setelah post dihapus)
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const stored = sessionStorage.getItem("mupost_delete_feedback");
+        if (stored) {
+          sessionStorage.removeItem("mupost_delete_feedback");
+          const parsed = JSON.parse(stored);
+          if (parsed && parsed.message) {
+            setFeedback(parsed);
+          }
+        }
+      } catch {
+        // Abaikan error sessionStorage
+      }
+    }
+  }, []);
+
   // Fetch broader post dataset for Calendar View if totalPages > 1
   useEffect(() => {
     if (viewMode === "calendar") {
@@ -586,28 +604,30 @@ function PostsListContent() {
       {/* Feedback Banner */}
       {feedback && (
         <div
-          className={`flex items-start gap-3 p-4 rounded-xl border text-xs ${
+          role="status"
+          aria-live="polite"
+          className={`flex items-start gap-3 p-4 rounded-xl border text-xs transition-all shadow-xs ${
             feedback.type === "success"
-              ? "bg-emerald-950/40 border-emerald-800/60 text-emerald-300"
+              ? "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/60 text-emerald-900 dark:text-emerald-300"
               : feedback.type === "info"
-                ? "bg-indigo-950/40 border-indigo-800/60 text-indigo-300"
-                : "bg-red-950/40 border-red-800/60 text-red-300"
+                ? "bg-indigo-50 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-800/60 text-indigo-900 dark:text-indigo-300"
+                : "bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-800/60 text-red-900 dark:text-red-300"
           }`}
         >
           {feedback.type === "success" ? (
-            <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+            <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-600 dark:text-emerald-400" />
           ) : feedback.type === "info" ? (
-            <Info className="w-4 h-4 shrink-0 mt-0.5" />
+            <Info className="w-4 h-4 shrink-0 mt-0.5 text-indigo-600 dark:text-indigo-400" />
           ) : (
-            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-600 dark:text-red-400" />
           )}
-          <span className="flex-1 font-medium">{feedback.message}</span>
+          <span className="flex-1 font-medium leading-relaxed">{feedback.message}</span>
           <button
             onClick={() => setFeedback(null)}
-            className="text-zinc-400 hover:text-zinc-200"
+            className="min-h-[44px] min-w-[44px] -my-2 -mr-2 flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors touch-manipulation"
             aria-label="Tutup notifikasi"
           >
-            ✕
+            <X className="w-4 h-4" />
           </button>
         </div>
       )}

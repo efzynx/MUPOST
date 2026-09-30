@@ -46,6 +46,29 @@ export function getPublishedTargets(post?: PostWithTargetsSummary | null): Delet
 }
 
 /**
+ * Mengecek apakah platform mendukung penghapusan otomatis via API resmi.
+ * Facebook Page dan Threads mendukung remote delete.
+ * Instagram Graph API dan TikTok tidak mengizinkan remote delete dari pihak ketiga.
+ */
+export function isPlatformDeleteSupported(platform: string): boolean {
+  return platform === "META_PAGE" || platform === "THREADS";
+}
+
+/**
+ * Mengembalikan catatan informatif mengenai kebijakan API platform terkait penghapusan konten.
+ */
+export function getPlatformDeletePolicyNote(platform: string): string | null {
+  switch (platform) {
+    case "INSTAGRAM":
+      return "Instagram Graph API membatasi penghapusan media yang sudah terbit oleh pihak ketiga. Konten perlu dihapus langsung dari aplikasi Instagram.";
+    case "TIKTOK":
+      return "TikTok API tidak menyediakan endpoint publik penghapusan video terbit oleh pihak ketiga. Konten perlu dihapus langsung dari aplikasi TikTok.";
+    default:
+      return null;
+  }
+}
+
+/**
  * Mengembalikan label representasi platform yang ramah pengguna.
  */
 export function formatPlatformDisplayName(platform: string): string {
@@ -79,7 +102,9 @@ export function formatDeleteFeedbackMessage(options: {
     };
   }
 
-  const successList = platformResults.filter((r) => r.success && !r.alreadyDeleted);
+  const successList = platformResults.filter(
+    (r) => r.success && !r.alreadyDeleted && !r.unsupported
+  );
   const alreadyDeletedList = platformResults.filter((r) => r.alreadyDeleted);
   const unsupportedList = platformResults.filter((r) => r.unsupported);
   const failedList = platformResults.filter(
@@ -106,7 +131,9 @@ export function formatDeleteFeedbackMessage(options: {
     const names = Array.from(
       new Set(unsupportedList.map((r) => formatPlatformDisplayName(r.platform)))
     );
-    parts.push(`${names.join(", ")} tidak mendukung penghapusan otomatis via API.`);
+    parts.push(
+      `${names.join(", ")} tidak mendukung penghapusan otomatis via API. Konten di ${names.join("/")} perlu dihapus langsung dari aplikasinya.`
+    );
   }
 
   if (failedList.length > 0) {

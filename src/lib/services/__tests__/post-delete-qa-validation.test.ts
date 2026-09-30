@@ -7,11 +7,14 @@ import { NextRequest } from "next/server";
 import { DELETE } from "@/app/api/posts/[id]/route";
 import { authService } from "@/lib/services/auth-service";
 import { SESSION_COOKIE_NAME } from "@/lib/cookies";
+import type { PlatformType } from "@/lib/db/schema";
 import {
   hasPublishedTargets,
   getPublishedTargets,
   formatPlatformDisplayName,
   formatDeleteFeedbackMessage,
+  isPlatformDeleteSupported,
+  getPlatformDeletePolicyNote,
 } from "../post-delete-helpers";
 
 // Mocks
@@ -126,6 +129,52 @@ describe("QC Validation: End-to-End & Edge Cases for Post Deletion", () => {
         expect(res.errorCode).toBe("502");
       });
 
+      it("should handle Graph API HTTP 200 with error payload as failure with TOKEN_EXPIRED", async () => {
+        global.fetch = jest.fn().mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            error: {
+              code: 190,
+              error_subcode: 463,
+              message: "Session has expired",
+            },
+          }),
+        } as unknown as Response);
+
+        const res = await platformAdaptersModule.deleteFromMeta(
+          "target-fb-200-err",
+          "fb_post_200_err",
+          "token-200"
+        );
+
+        expect(res.success).toBe(false);
+        expect(res.needsReauth).toBe(true);
+        expect(res.errorCode).toBe("TOKEN_EXPIRED");
+      });
+
+      it("should handle error code 100 with 'cannot be loaded' as alreadyDeleted", async () => {
+        global.fetch = jest.fn().mockResolvedValueOnce({
+          ok: false,
+          status: 400,
+          json: async () => ({
+            error: {
+              code: 100,
+              message: "Object cannot be loaded due to missing permissions or does not exist",
+            },
+          }),
+        } as unknown as Response);
+
+        const res = await platformAdaptersModule.deleteFromMeta(
+          "target-fb-cannot-load",
+          "fb_post_cannot_load",
+          "token-cannot-load"
+        );
+
+        expect(res.success).toBe(true);
+        expect(res.alreadyDeleted).toBe(true);
+      });
+
       it("should catch TimeoutError on Meta deletion", async () => {
         const abortErr = new Error("The operation was aborted");
         abortErr.name = "AbortError";
@@ -184,6 +233,98 @@ describe("QC Validation: End-to-End & Edge Cases for Post Deletion", () => {
         expect(res.success).toBe(false);
         expect(res.errorCode).toBe("TIMEOUT");
       });
+
+      it("should handle error code 100 with 'Unsupported delete request' as unsupported", async () => {
+        global.fetch = jest.fn().mockResolvedValueOnce({
+          ok: false,
+          status: 400,
+          json: async () => ({
+            error: {
+              code: 100,
+              message:
+                "Unsupported delete request. Object with ID 'ig_media_unsupported' does not exist, cannot be loaded due to missing permissions, or does not support this operation.",
+            },
+          }),
+        } as unknown as Response);
+
+        const res = await platformAdaptersModule.deleteFromInstagram(
+          "target-ig-unsup",
+          "ig_media_unsupported",
+          "token-ig"
+        );
+
+        expect(res.success).toBe(true);
+        expect(res.unsupported).toBe(true);
+        expect(res.warning).toContain("Instagram Graph API");
+      });
+
+      it("should handle HTTP 405 Method Not Allowed on Instagram as unsupported", async () => {
+        global.fetch = jest.fn().mockResolvedValueOnce({
+          ok: false,
+          status: 405,
+          json: async () => ({
+            error: {
+              code: 405,
+              message: "Method Not Allowed",
+            },
+          }),
+        } as unknown as Response);
+
+        const res = await platformAdaptersModule.deleteFromInstagram(
+          "target-ig-405",
+          "ig_media_405",
+          "token-ig"
+        );
+
+        expect(res.success).toBe(true);
+        expect(res.unsupported).toBe(true);
+      });
+
+      it("should handle OAuthException code 190 on Instagram as TOKEN_EXPIRED", async () => {
+        global.fetch = jest.fn().mockResolvedValueOnce({
+          ok: false,
+          status: 401,
+          json: async () => ({
+            error: {
+              code: 190,
+              type: "OAuthException",
+              message: "Invalid session",
+            },
+          }),
+        } as unknown as Response);
+
+        const res = await platformAdaptersModule.deleteFromInstagram(
+          "target-ig-190",
+          "ig_media_190",
+          "token-ig"
+        );
+
+        expect(res.success).toBe(false);
+        expect(res.needsReauth).toBe(true);
+        expect(res.errorCode).toBe("TOKEN_EXPIRED");
+      });
+
+      it("should handle error code 803 on Instagram as alreadyDeleted", async () => {
+        global.fetch = jest.fn().mockResolvedValueOnce({
+          ok: false,
+          status: 400,
+          json: async () => ({
+            error: {
+              code: 803,
+              message: "Aliases do not exist",
+            },
+          }),
+        } as unknown as Response);
+
+        const res = await platformAdaptersModule.deleteFromInstagram(
+          "target-ig-803",
+          "ig_media_803",
+          "token-ig"
+        );
+
+        expect(res.success).toBe(true);
+        expect(res.alreadyDeleted).toBe(true);
+      });
     });
 
     describe("Threads Deletion", () => {
@@ -207,6 +348,52 @@ describe("QC Validation: End-to-End & Edge Cases for Post Deletion", () => {
 
         expect(res.success).toBe(true);
         expect(res.alreadyDeleted).toBe(true);
+      });
+
+      it("should handle HTTP 404 on Threads as alreadyDeleted", async () => {
+        global.fetch = jest.fn().mockResolvedValueOnce({
+          ok: false,
+          status: 404,
+          json: async () => ({
+            error: {
+              code: 24,
+              message: "Object does not exist",
+            },
+          }),
+        } as unknown as Response);
+
+        const res = await platformAdaptersModule.deleteFromThreads(
+          "target-th-404",
+          "th_media_404",
+          "token-th"
+        );
+
+        expect(res.success).toBe(true);
+        expect(res.alreadyDeleted).toBe(true);
+      });
+
+      it("should handle OAuthException code 190 on Threads as TOKEN_EXPIRED", async () => {
+        global.fetch = jest.fn().mockResolvedValueOnce({
+          ok: false,
+          status: 401,
+          json: async () => ({
+            error: {
+              code: 190,
+              type: "OAuthException",
+              message: "Access token expired",
+            },
+          }),
+        } as unknown as Response);
+
+        const res = await platformAdaptersModule.deleteFromThreads(
+          "target-th-190",
+          "th_media_190",
+          "token-th"
+        );
+
+        expect(res.success).toBe(false);
+        expect(res.needsReauth).toBe(true);
+        expect(res.errorCode).toBe("TOKEN_EXPIRED");
       });
 
       it("should catch TimeoutError on Threads deletion", async () => {
@@ -248,6 +435,96 @@ describe("QC Validation: End-to-End & Edge Cases for Post Deletion", () => {
 
         expect(res.success).toBe(true);
         expect(res.alreadyDeleted).toBe(true);
+      });
+
+      it("should handle video_not_found error code as alreadyDeleted", async () => {
+        global.fetch = jest.fn().mockResolvedValueOnce({
+          ok: false,
+          status: 400,
+          json: async () => ({
+            error: {
+              code: "video_not_found",
+              message: "Video item not found",
+            },
+          }),
+        } as unknown as Response);
+
+        const res = await platformAdaptersModule.deleteFromTikTok(
+          "target-tt-vnf",
+          "tt_video_vnf",
+          "token-tt"
+        );
+
+        expect(res.success).toBe(true);
+        expect(res.alreadyDeleted).toBe(true);
+      });
+
+      it("should handle HTTP 405 Method Not Allowed as unsupported on TikTok", async () => {
+        global.fetch = jest.fn().mockResolvedValueOnce({
+          ok: false,
+          status: 405,
+          json: async () => ({
+            error: {
+              code: "unsupported_action",
+              message: "Method Not Allowed",
+            },
+          }),
+        } as unknown as Response);
+
+        const res = await platformAdaptersModule.deleteFromTikTok(
+          "target-tt-405",
+          "tt_video_405",
+          "token-tt"
+        );
+
+        expect(res.success).toBe(true);
+        expect(res.unsupported).toBe(true);
+        expect(res.warning).toContain("TikTok Content Posting API");
+      });
+
+      it("should handle access_token_invalid (HTTP 401) on TikTok as TOKEN_EXPIRED", async () => {
+        global.fetch = jest.fn().mockResolvedValueOnce({
+          ok: false,
+          status: 401,
+          json: async () => ({
+            error: {
+              code: "access_token_invalid",
+              message: "The access token has expired",
+            },
+          }),
+        } as unknown as Response);
+
+        const res = await platformAdaptersModule.deleteFromTikTok(
+          "target-tt-401",
+          "tt_video_401",
+          "token-tt"
+        );
+
+        expect(res.success).toBe(false);
+        expect(res.needsReauth).toBe(true);
+        expect(res.errorCode).toBe("TOKEN_EXPIRED");
+      });
+
+      it("should handle TikTok successful response with error code 0 or ok", async () => {
+        global.fetch = jest.fn().mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            error: {
+              code: "ok",
+              message: "",
+            },
+          }),
+        } as unknown as Response);
+
+        const res = await platformAdaptersModule.deleteFromTikTok(
+          "target-tt-ok",
+          "tt_video_ok",
+          "token-tt"
+        );
+
+        expect(res.success).toBe(true);
+        expect(res.platform).toBe("TIKTOK");
       });
 
       it("should handle scope_not_authorized as unsupported gracefully", async () => {
@@ -311,6 +588,56 @@ describe("QC Validation: End-to-End & Edge Cases for Post Deletion", () => {
 
         expect(res.success).toBe(false);
         expect(res.errorCode).toBe("TIMEOUT");
+      });
+    });
+
+    describe("Platform Adapters Registry & Unified deleteFromPlatform", () => {
+      it("should return UNSUPPORTED_PLATFORM when deleting from unsupported platform type", async () => {
+        const res = await platformAdaptersModule.deleteFromPlatform(
+          "UNKNOWN_PLATFORM" as unknown as PlatformType,
+          "t-unknown",
+          "p-unknown",
+          "token-any"
+        );
+
+        expect(res.success).toBe(false);
+        expect(res.errorCode).toBe("UNSUPPORTED_PLATFORM");
+        expect(res.errorMessage).toContain("belum didukung untuk penghapusan");
+      });
+
+      it("should resolve token when account object and accessToken are passed to deleteFromPlatform", async () => {
+        global.fetch = jest.fn().mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true }),
+        } as unknown as Response);
+
+        const res = await platformAdaptersModule.deleteFromPlatform(
+          "META_PAGE",
+          "t-meta-obj",
+          "fb-post-obj",
+          { platformAccountId: "page-123" },
+          "resolved-token-xyz"
+        );
+
+        expect(res.success).toBe(true);
+        expect(res.platform).toBe("META_PAGE");
+        expect(global.fetch).toHaveBeenCalledWith(
+          expect.stringContaining("resolved-token-xyz"),
+          expect.objectContaining({ method: "DELETE" })
+        );
+      });
+
+      it("should export singleton adapter instances correctly", () => {
+        expect(platformAdaptersModule.metaAdapter.platform).toBe("META_PAGE");
+        expect(platformAdaptersModule.facebookAdapter.platform).toBe("META_PAGE");
+        expect(platformAdaptersModule.instagramAdapter.platform).toBe("INSTAGRAM");
+        expect(platformAdaptersModule.threadsAdapter.platform).toBe("THREADS");
+        expect(platformAdaptersModule.tiktokAdapter.platform).toBe("TIKTOK");
+        expect(platformAdaptersModule.platformAdapters.META_PAGE).toBeDefined();
+        expect(platformAdaptersModule.platformAdapters.INSTAGRAM).toBeDefined();
+        expect(platformAdaptersModule.platformAdapters.THREADS).toBeDefined();
+        expect(platformAdaptersModule.platformAdapters.TIKTOK).toBeDefined();
       });
     });
   });
@@ -897,6 +1224,150 @@ describe("QC Validation: End-to-End & Edge Cases for Post Deletion", () => {
       expect(result.platformResults?.[0]?.errorCode).toBe("UNHANDLED_EXCEPTION");
       expect(result.platformResults?.[0]?.errorMessage).toBe("Async thread rejected");
     });
+
+    it("Scenario: Multiple published targets sharing the same connected account ID", async () => {
+      mockedDb.select.mockReturnValueOnce({
+        from: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockResolvedValue([
+          {
+            id: "post-shared-acc",
+            userId: "user-1",
+            status: "PUBLISHED",
+          },
+        ]),
+      });
+
+      mockedDb.select.mockReturnValueOnce({
+        from: jest.fn().mockReturnThis(),
+        leftJoin: jest.fn().mockReturnThis(),
+        where: jest.fn().mockResolvedValue([
+          {
+            id: "t-shared-1",
+            connectedAccountId: "acc-shared",
+            platform: "META_PAGE",
+            status: "PUBLISHED",
+            platformPostId: "fb-post-shared-1",
+          },
+          {
+            id: "t-shared-2",
+            connectedAccountId: "acc-shared",
+            platform: "META_PAGE",
+            status: "PUBLISHED",
+            platformPostId: "fb-post-shared-2",
+          },
+        ]),
+      });
+
+      mockedDb.select.mockReturnValueOnce({
+        from: jest.fn().mockReturnThis(),
+        where: jest
+          .fn()
+          .mockResolvedValue([
+            { id: "acc-shared", platform: "META_PAGE", accessTokenEnc: "enc-shared" },
+          ]),
+      });
+
+      const deleteFromPlatformSpy = jest
+        .spyOn(platformAdaptersModule, "deleteFromPlatform")
+        .mockResolvedValue({
+          targetId: "any",
+          platform: "META_PAGE",
+          platformPostId: "any",
+          success: true,
+        });
+
+      mockedDb.delete.mockReturnValueOnce({
+        where: jest.fn().mockReturnThis(),
+        returning: jest.fn().mockResolvedValue([{ id: "post-shared-acc" }]),
+      });
+
+      const result = await postManager.deletePost("user-1", "post-shared-acc", {
+        deleteOnPlatforms: true,
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.platformResults).toHaveLength(2);
+      expect(deleteFromPlatformSpy).toHaveBeenCalledTimes(2);
+    });
+
+    it("Scenario: Target with null platformPostId is excluded from platform deletion", async () => {
+      mockedDb.select.mockReturnValueOnce({
+        from: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        limit: jest
+          .fn()
+          .mockResolvedValue([{ id: "post-null-pid", userId: "user-1", status: "PUBLISHED" }]),
+      });
+
+      mockedDb.select.mockReturnValueOnce({
+        from: jest.fn().mockReturnThis(),
+        leftJoin: jest.fn().mockReturnThis(),
+        where: jest.fn().mockResolvedValue([
+          {
+            id: "t-null-pid",
+            connectedAccountId: "acc-1",
+            platform: "META_PAGE",
+            status: "PUBLISHED",
+            platformPostId: null,
+          },
+        ]),
+      });
+
+      const deleteFromPlatformSpy = jest.spyOn(platformAdaptersModule, "deleteFromPlatform");
+
+      mockedDb.delete.mockReturnValueOnce({
+        where: jest.fn().mockReturnThis(),
+        returning: jest.fn().mockResolvedValue([{ id: "post-null-pid" }]),
+      });
+
+      const result = await postManager.deletePost("user-1", "post-null-pid", {
+        deleteOnPlatforms: true,
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.platformResults).toEqual([]);
+      expect(deleteFromPlatformSpy).not.toHaveBeenCalled();
+    });
+
+    it("Scenario: When deleteOnPlatforms is explicitly false, platform deletion is not attempted", async () => {
+      mockedDb.select.mockReturnValueOnce({
+        from: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        limit: jest
+          .fn()
+          .mockResolvedValue([{ id: "post-no-sync", userId: "user-1", status: "PUBLISHED" }]),
+      });
+
+      mockedDb.select.mockReturnValueOnce({
+        from: jest.fn().mockReturnThis(),
+        leftJoin: jest.fn().mockReturnThis(),
+        where: jest.fn().mockResolvedValue([
+          {
+            id: "t-pub-1",
+            connectedAccountId: "acc-1",
+            platform: "META_PAGE",
+            status: "PUBLISHED",
+            platformPostId: "fb-123",
+          },
+        ]),
+      });
+
+      const deleteFromPlatformSpy = jest.spyOn(platformAdaptersModule, "deleteFromPlatform");
+
+      mockedDb.delete.mockReturnValueOnce({
+        where: jest.fn().mockReturnThis(),
+        returning: jest.fn().mockResolvedValue([{ id: "post-no-sync" }]),
+      });
+
+      const result = await postManager.deletePost("user-1", "post-no-sync", {
+        deleteOnPlatforms: false,
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.platformResults).toBeUndefined();
+      expect(deleteFromPlatformSpy).not.toHaveBeenCalled();
+    });
   });
 
   // =========================================================================
@@ -919,6 +1390,25 @@ describe("QC Validation: End-to-End & Edge Cases for Post Deletion", () => {
       expect(deletePostSpy).toHaveBeenCalledWith("user-1", "p-1", { deleteOnPlatforms: true });
     });
 
+    it("should parse deleteOnPlatforms=false query param as false", async () => {
+      (authService.validateSession as jest.Mock).mockResolvedValueOnce({ id: "user-1" });
+      const deletePostSpy = jest
+        .spyOn(PostManager.prototype, "deletePost")
+        .mockResolvedValueOnce({ success: true, deletedPostId: "p-false" });
+
+      const req = new NextRequest(
+        "http://localhost:3000/api/posts/p-false?deleteOnPlatforms=false",
+        {
+          method: "DELETE",
+          headers: { cookie: `${SESSION_COOKIE_NAME}=token` },
+        }
+      );
+
+      const res = await DELETE(req, { params: Promise.resolve({ id: "p-false" }) });
+      expect(res.status).toBe(200);
+      expect(deletePostSpy).toHaveBeenCalledWith("user-1", "p-false", { deleteOnPlatforms: false });
+    });
+
     it("should parse syncDelete from JSON body", async () => {
       (authService.validateSession as jest.Mock).mockResolvedValueOnce({ id: "user-1" });
       const deletePostSpy = jest
@@ -937,6 +1427,53 @@ describe("QC Validation: End-to-End & Edge Cases for Post Deletion", () => {
       const res = await DELETE(req, { params: Promise.resolve({ id: "p-2" }) });
       expect(res.status).toBe(200);
       expect(deletePostSpy).toHaveBeenCalledWith("user-1", "p-2", { deleteOnPlatforms: true });
+    });
+
+    it("should handle malformed JSON body in DELETE without throwing 500", async () => {
+      (authService.validateSession as jest.Mock).mockResolvedValueOnce({ id: "user-1" });
+      const deletePostSpy = jest
+        .spyOn(PostManager.prototype, "deletePost")
+        .mockResolvedValueOnce({ success: true, deletedPostId: "p-bad-json" });
+
+      const req = new NextRequest("http://localhost:3000/api/posts/p-bad-json", {
+        method: "DELETE",
+        headers: {
+          cookie: `${SESSION_COOKIE_NAME}=token`,
+          "content-type": "application/json",
+        },
+        body: "invalid-json-content",
+      });
+
+      const res = await DELETE(req, { params: Promise.resolve({ id: "p-bad-json" }) });
+      expect(res.status).toBe(200);
+      expect(deletePostSpy).toHaveBeenCalledWith("user-1", "p-bad-json", {
+        deleteOnPlatforms: false,
+      });
+    });
+
+    it("should return 401 when session cookie is completely missing", async () => {
+      const req = new NextRequest("http://localhost:3000/api/posts/p-no-cookie", {
+        method: "DELETE",
+      });
+
+      const res = await DELETE(req, { params: Promise.resolve({ id: "p-no-cookie" }) });
+      expect(res.status).toBe(401);
+      const json = await res.json();
+      expect(json.error.code).toBe("UNAUTHORIZED");
+    });
+
+    it("should return 401 when session validation returns null", async () => {
+      (authService.validateSession as jest.Mock).mockResolvedValueOnce(null);
+
+      const req = new NextRequest("http://localhost:3000/api/posts/p-bad-cookie", {
+        method: "DELETE",
+        headers: { cookie: `${SESSION_COOKIE_NAME}=invalid` },
+      });
+
+      const res = await DELETE(req, { params: Promise.resolve({ id: "p-bad-cookie" }) });
+      expect(res.status).toBe(401);
+      const json = await res.json();
+      expect(json.error.code).toBe("UNAUTHORIZED");
     });
 
     it("should return 500 INTERNAL if deletePost throws an unexpected error", async () => {
@@ -999,6 +1536,22 @@ describe("QC Validation: End-to-End & Edge Cases for Post Deletion", () => {
       expect(published.map((t) => t.platform)).toEqual(["META_PAGE", "INSTAGRAM"]);
     });
 
+    it("isPlatformDeleteSupported correctly identifies supported and unsupported platforms", () => {
+      expect(isPlatformDeleteSupported("META_PAGE")).toBe(true);
+      expect(isPlatformDeleteSupported("THREADS")).toBe(true);
+      expect(isPlatformDeleteSupported("INSTAGRAM")).toBe(false);
+      expect(isPlatformDeleteSupported("TIKTOK")).toBe(false);
+      expect(isPlatformDeleteSupported("UNKNOWN_NETWORK")).toBe(false);
+    });
+
+    it("getPlatformDeletePolicyNote provides correct notes and null where unrestricted", () => {
+      expect(getPlatformDeletePolicyNote("INSTAGRAM")).toContain("Instagram Graph API");
+      expect(getPlatformDeletePolicyNote("TIKTOK")).toContain("TikTok API");
+      expect(getPlatformDeletePolicyNote("META_PAGE")).toBeNull();
+      expect(getPlatformDeletePolicyNote("THREADS")).toBeNull();
+      expect(getPlatformDeletePolicyNote("CUSTOM")).toBeNull();
+    });
+
     it("formatPlatformDisplayName returns raw string for unknown platform", () => {
       expect(formatPlatformDisplayName("CUSTOM_NETWORK")).toBe("CUSTOM_NETWORK");
     });
@@ -1044,6 +1597,123 @@ describe("QC Validation: End-to-End & Edge Cases for Post Deletion", () => {
       expect(result.type).toBe("info");
       expect(result.message).toContain("Konten di Facebook Page berhasil dihapus.");
       expect(result.message).toContain("Gagal menghapus konten di Threads.");
+    });
+
+    it("formatDeleteFeedbackMessage handles comprehensive multi-platform mixed outcomes", () => {
+      const result = formatDeleteFeedbackMessage({
+        deleteOnPlatforms: true,
+        platformResults: [
+          { targetId: "t-1", platform: "META_PAGE", platformPostId: "fb-1", success: true },
+          {
+            targetId: "t-2",
+            platform: "THREADS",
+            platformPostId: "th-1",
+            success: true,
+            alreadyDeleted: true,
+          },
+          {
+            targetId: "t-3",
+            platform: "INSTAGRAM",
+            platformPostId: "ig-1",
+            success: true,
+            unsupported: true,
+          },
+          {
+            targetId: "t-4",
+            platform: "TIKTOK",
+            platformPostId: "tt-1",
+            success: false,
+            errorMessage: "Server error",
+          },
+        ],
+      });
+
+      expect(result.type).toBe("info");
+      expect(result.message).toContain("Postingan berhasil dihapus dari Mupost.");
+      expect(result.message).toContain("Konten di Facebook Page berhasil dihapus.");
+      expect(result.message).toContain("Konten di Threads sudah dihapus sebelumnya dari platform.");
+      expect(result.message).toContain("Instagram tidak mendukung penghapusan otomatis via API.");
+      expect(result.message).toContain("Gagal menghapus konten di TikTok.");
+    });
+
+    it("formatDeleteFeedbackMessage deduplicates repeated platform names", () => {
+      const result = formatDeleteFeedbackMessage({
+        deleteOnPlatforms: true,
+        platformResults: [
+          { targetId: "t-1", platform: "META_PAGE", platformPostId: "fb-1", success: true },
+          { targetId: "t-2", platform: "META_PAGE", platformPostId: "fb-2", success: true },
+        ],
+      });
+
+      expect(result.type).toBe("success");
+      const matches = result.message.match(/Facebook Page/g);
+      expect(matches).toHaveLength(1);
+    });
+
+    it("formatDeleteFeedbackMessage handles all platforms failed", () => {
+      const result = formatDeleteFeedbackMessage({
+        deleteOnPlatforms: true,
+        platformResults: [
+          {
+            targetId: "t-1",
+            platform: "META_PAGE",
+            platformPostId: "fb-1",
+            success: false,
+            errorMessage: "Failed",
+          },
+          {
+            targetId: "t-2",
+            platform: "THREADS",
+            platformPostId: "th-1",
+            success: false,
+            errorMessage: "Failed",
+          },
+        ],
+      });
+
+      expect(result.type).toBe("info");
+      expect(result.message).toContain("Gagal menghapus konten di Facebook Page, Threads.");
+    });
+
+    it("formatDeleteFeedbackMessage handles all platforms already deleted", () => {
+      const result = formatDeleteFeedbackMessage({
+        deleteOnPlatforms: true,
+        platformResults: [
+          {
+            targetId: "t-1",
+            platform: "META_PAGE",
+            platformPostId: "fb-1",
+            success: true,
+            alreadyDeleted: true,
+          },
+          {
+            targetId: "t-2",
+            platform: "THREADS",
+            platformPostId: "th-1",
+            success: true,
+            alreadyDeleted: true,
+          },
+        ],
+      });
+
+      expect(result.type).toBe("success");
+      expect(result.message).toContain(
+        "Konten di Facebook Page, Threads sudah dihapus sebelumnya dari platform."
+      );
+    });
+
+    it("formatDeleteFeedbackMessage handles empty platformResults or deleteOnPlatforms false", () => {
+      const res1 = formatDeleteFeedbackMessage({ deleteOnPlatforms: false });
+      expect(res1).toEqual({
+        type: "success",
+        message: "Postingan berhasil dihapus dari Mupost.",
+      });
+
+      const res2 = formatDeleteFeedbackMessage({ deleteOnPlatforms: true, platformResults: [] });
+      expect(res2).toEqual({
+        type: "success",
+        message: "Postingan berhasil dihapus dari Mupost.",
+      });
     });
   });
 });

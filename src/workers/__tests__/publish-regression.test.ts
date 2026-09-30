@@ -53,7 +53,7 @@ describe("Regression Tests: Other Platforms Publishing", () => {
       );
 
       expect(result.success).toBe(true);
-      expect(result.platformPostId).toBe("fb-photo-123");
+      expect(result.platformPostId).toBe("fb-post-456");
       expect(global.fetch).toHaveBeenCalledWith(
         expect.stringContaining(`/${mockAccount.platformAccountId}/photos`),
         expect.anything()

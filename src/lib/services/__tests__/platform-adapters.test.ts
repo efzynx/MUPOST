@@ -181,6 +181,48 @@ describe("Platform Deletion Adapters", () => {
       expect(result.needsReauth).toBe(true);
       expect(result.errorCode).toBe("TOKEN_EXPIRED");
     });
+
+    it("should gracefully handle unsupported deletion in Instagram Graph API (error code 100 with unsupported request)", async () => {
+      global.fetch = jest.fn().mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        json: async () => ({
+          error: {
+            message:
+              "Unsupported delete request. Object with ID 'ig_media_67890' does not support this operation.",
+            type: "GraphMethodException",
+            code: 100,
+          },
+        }),
+      } as unknown as Response);
+
+      const result = await deleteFromInstagram("target-ig-1", "ig_media_67890", "valid-ig-token");
+
+      expect(result.success).toBe(true);
+      expect(result.unsupported).toBe(true);
+      expect(result.platform).toBe("INSTAGRAM");
+      expect(result.warning).toContain("Instagram Graph API");
+      expect(result.warning).toContain("aplikasi Instagram");
+    });
+
+    it("should gracefully handle HTTP 405 Method Not Allowed on Instagram deletion as unsupported", async () => {
+      global.fetch = jest.fn().mockResolvedValueOnce({
+        ok: false,
+        status: 405,
+        json: async () => ({
+          error: {
+            message: "Method Not Allowed",
+            code: 405,
+          },
+        }),
+      } as unknown as Response);
+
+      const result = await deleteFromInstagram("target-ig-1", "ig_media_67890", "valid-ig-token");
+
+      expect(result.success).toBe(true);
+      expect(result.unsupported).toBe(true);
+      expect(result.warning).toContain("Instagram Graph API");
+    });
   });
 
   describe("deleteFromThreads", () => {

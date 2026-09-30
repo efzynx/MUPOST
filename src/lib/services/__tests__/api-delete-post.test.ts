@@ -136,4 +136,109 @@ describe("DELETE /api/posts/[id]", () => {
     const json = await res.json();
     expect(json.error.code).toBe("NOT_FOUND");
   });
+
+  it("should parse syncDelete query parameter and pass to postManager.deletePost", async () => {
+    (authService.validateSession as jest.Mock).mockResolvedValueOnce({
+      id: "user-456",
+      email: "user@example.com",
+    });
+
+    (postManager.deletePost as jest.Mock).mockResolvedValueOnce({
+      success: true,
+      deletedPostId: "post-sync-1",
+    });
+
+    const req = new NextRequest("http://localhost:3000/api/posts/post-sync-1?syncDelete=1", {
+      method: "DELETE",
+      headers: {
+        cookie: `${SESSION_COOKIE_NAME}=valid-token`,
+      },
+    });
+
+    const res = await DELETE(req, { params: Promise.resolve({ id: "post-sync-1" }) });
+    expect(res.status).toBe(200);
+
+    expect(postManager.deletePost).toHaveBeenCalledWith("user-456", "post-sync-1", {
+      deleteOnPlatforms: true,
+    });
+  });
+
+  it("should default deleteOnPlatforms to false when explicitly passed false in query param", async () => {
+    (authService.validateSession as jest.Mock).mockResolvedValueOnce({
+      id: "user-456",
+      email: "user@example.com",
+    });
+
+    (postManager.deletePost as jest.Mock).mockResolvedValueOnce({
+      success: true,
+      deletedPostId: "post-no-sync",
+    });
+
+    const req = new NextRequest(
+      "http://localhost:3000/api/posts/post-no-sync?deleteOnPlatforms=false",
+      {
+        method: "DELETE",
+        headers: {
+          cookie: `${SESSION_COOKIE_NAME}=valid-token`,
+        },
+      }
+    );
+
+    const res = await DELETE(req, { params: Promise.resolve({ id: "post-no-sync" }) });
+    expect(res.status).toBe(200);
+
+    expect(postManager.deletePost).toHaveBeenCalledWith("user-456", "post-no-sync", {
+      deleteOnPlatforms: false,
+    });
+  });
+
+  it("should handle malformed JSON body in DELETE request gracefully", async () => {
+    (authService.validateSession as jest.Mock).mockResolvedValueOnce({
+      id: "user-456",
+      email: "user@example.com",
+    });
+
+    (postManager.deletePost as jest.Mock).mockResolvedValueOnce({
+      success: true,
+      deletedPostId: "post-malformed-body",
+    });
+
+    const req = new NextRequest("http://localhost:3000/api/posts/post-malformed-body", {
+      method: "DELETE",
+      headers: {
+        cookie: `${SESSION_COOKIE_NAME}=valid-token`,
+        "content-type": "application/json",
+      },
+      body: "{ not valid json...",
+    });
+
+    const res = await DELETE(req, { params: Promise.resolve({ id: "post-malformed-body" }) });
+    expect(res.status).toBe(200);
+
+    expect(postManager.deletePost).toHaveBeenCalledWith("user-456", "post-malformed-body", {
+      deleteOnPlatforms: false,
+    });
+  });
+
+  it("should handle unexpected errors by returning 500 INTERNAL", async () => {
+    (authService.validateSession as jest.Mock).mockResolvedValueOnce({
+      id: "user-456",
+    });
+
+    (postManager.deletePost as jest.Mock).mockRejectedValueOnce(
+      new Error("Unexpected database disconnection")
+    );
+
+    const req = new NextRequest("http://localhost:3000/api/posts/post-err", {
+      method: "DELETE",
+      headers: {
+        cookie: `${SESSION_COOKIE_NAME}=valid-token`,
+      },
+    });
+
+    const res = await DELETE(req, { params: Promise.resolve({ id: "post-err" }) });
+    expect(res.status).toBe(500);
+    const json = await res.json();
+    expect(json.error.code).toBe("INTERNAL");
+  });
 });
