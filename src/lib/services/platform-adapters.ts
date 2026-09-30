@@ -169,14 +169,14 @@ export async function deleteFromInstagram(
       const errorCode = String(err.code || res.status);
       const errorMessage = String(err.message || "Instagram API error");
 
+      // Cek apakah postingan sudah dihapus langsung dari Instagram oleh pengguna
       const isAlreadyDeleted =
         res.status === 404 ||
         errorCode === "24" ||
         errorCode === "803" ||
         (errorCode === "100" &&
-          (errorMessage.toLowerCase().includes("does not exist") ||
-            errorMessage.toLowerCase().includes("unsupported delete request") ||
-            errorMessage.toLowerCase().includes("cannot be loaded")));
+          errorMessage.toLowerCase().includes("does not exist") &&
+          !errorMessage.toLowerCase().includes("unsupported delete request"));
 
       if (isAlreadyDeleted) {
         return {
@@ -186,6 +186,31 @@ export async function deleteFromInstagram(
           success: true,
           alreadyDeleted: true,
           errorMessage: "Postingan sudah dihapus sebelumnya dari Instagram.",
+        };
+      }
+
+      // Cek pembatasan API resmi Instagram Graph API (membatasi penghapusan media yang sudah terbit oleh pihak ketiga)
+      const isUnsupported =
+        res.status === 405 ||
+        errorCode === "unsupported_action" ||
+        errorCode === "scope_not_authorized" ||
+        (errorCode === "100" &&
+          (errorMessage.toLowerCase().includes("unsupported delete request") ||
+            errorMessage.toLowerCase().includes("does not support") ||
+            errorMessage.toLowerCase().includes("cannot be loaded due to missing permissions") ||
+            errorMessage.toLowerCase().includes("missing permissions"))) ||
+        errorMessage.toLowerCase().includes("not support") ||
+        errorMessage.toLowerCase().includes("unsupported delete");
+
+      if (isUnsupported) {
+        return {
+          targetId,
+          platform: "INSTAGRAM",
+          platformPostId,
+          success: true,
+          unsupported: true,
+          warning:
+            "Instagram Graph API membatasi penghapusan media yang sudah terbit oleh pihak ketiga. Silakan hapus postingan langsung di aplikasi Instagram.",
         };
       }
 

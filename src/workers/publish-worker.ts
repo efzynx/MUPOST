@@ -200,7 +200,7 @@ export async function publishToMeta(
       };
     }
 
-    const platformPostId = json.id || json.post_id;
+    const platformPostId = json.post_id || json.id;
     return {
       targetId,
       platform: "META_PAGE",

@@ -336,4 +336,99 @@ describe("PostManager.deletePost", () => {
       expect.objectContaining({ status: "NEEDS_REAUTH" })
     );
   });
+
+  it("should document unsupported platform results and return platformResults summary to caller", async () => {
+    jest
+      .spyOn(platformAdaptersModule, "deleteFromPlatform")
+      .mockImplementation(async (platform, targetId, platformPostId) => {
+        if (platform === "TIKTOK") {
+          return {
+            targetId,
+            platform: "TIKTOK",
+            platformPostId,
+            success: true,
+            unsupported: true,
+            warning:
+              "TikTok Content Posting API saat ini belum mendukung penghapusan video terbit secara otomatis. Silakan hapus video langsung di aplikasi TikTok.",
+          };
+        }
+        return {
+          targetId,
+          platform: "INSTAGRAM",
+          platformPostId,
+          success: true,
+          unsupported: true,
+          warning:
+            "Instagram Graph API membatasi penghapusan media yang sudah terbit oleh pihak ketiga. Silakan hapus postingan langsung di aplikasi Instagram.",
+        };
+      });
+
+    // getPost postRow
+    mockedDb.select.mockReturnValueOnce({
+      from: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockResolvedValue([
+        {
+          id: "post-unsupported",
+          userId: "user-1",
+          status: "PUBLISHED",
+        },
+      ]),
+    });
+
+    // getPost targets
+    mockedDb.select.mockReturnValueOnce({
+      from: jest.fn().mockReturnThis(),
+      leftJoin: jest.fn().mockReturnThis(),
+      where: jest.fn().mockResolvedValue([
+        {
+          id: "target-ig-unsup",
+          connectedAccountId: "acc-ig-1",
+          platform: "INSTAGRAM",
+          status: "PUBLISHED",
+          platformPostId: "ig-media-999",
+        },
+        {
+          id: "target-tt-unsup",
+          connectedAccountId: "acc-tt-1",
+          platform: "TIKTOK",
+          status: "PUBLISHED",
+          platformPostId: "tt-video-999",
+        },
+      ]),
+    });
+
+    // query accounts
+    mockedDb.select.mockReturnValueOnce({
+      from: jest.fn().mockReturnThis(),
+      where: jest.fn().mockResolvedValue([
+        { id: "acc-ig-1", platform: "INSTAGRAM", accessTokenEnc: "enc-ig" },
+        { id: "acc-tt-1", platform: "TIKTOK", accessTokenEnc: "enc-tt" },
+      ]),
+    });
+
+    // delete post
+    mockedDb.delete.mockReturnValueOnce({
+      where: jest.fn().mockReturnThis(),
+      returning: jest.fn().mockResolvedValue([{ id: "post-unsupported" }]),
+    });
+
+    const result = await postManager.deletePost("user-1", "post-unsupported", {
+      deleteOnPlatforms: true,
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.deletedPostId).toBe("post-unsupported");
+    expect(result.platformResults).toHaveLength(2);
+
+    const igResult = result.platformResults?.find((r) => r.platform === "INSTAGRAM");
+    expect(igResult?.success).toBe(true);
+    expect(igResult?.unsupported).toBe(true);
+    expect(igResult?.warning).toContain("Instagram Graph API");
+
+    const ttResult = result.platformResults?.find((r) => r.platform === "TIKTOK");
+    expect(ttResult?.success).toBe(true);
+    expect(ttResult?.unsupported).toBe(true);
+    expect(ttResult?.warning).toContain("TikTok Content Posting API");
+  });
 });

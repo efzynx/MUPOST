@@ -3,6 +3,8 @@ import {
   getPublishedTargets,
   formatPlatformDisplayName,
   formatDeleteFeedbackMessage,
+  isPlatformDeleteSupported,
+  getPlatformDeletePolicyNote,
   type PostWithTargetsSummary,
 } from "../post-delete-helpers";
 
@@ -196,6 +198,31 @@ describe("post-delete-helpers", () => {
       expect(res.type).toBe("info");
       expect(res.message).toContain("Gagal menghapus konten di Instagram.");
       expect(res.message).toContain("Konten di Facebook Page berhasil dihapus.");
+    });
+  });
+
+  describe("isPlatformDeleteSupported", () => {
+    it("should return true for platforms supporting remote delete", () => {
+      expect(isPlatformDeleteSupported("META_PAGE")).toBe(true);
+      expect(isPlatformDeleteSupported("THREADS")).toBe(true);
+    });
+
+    it("should return false for platforms with API delete restrictions or unknown", () => {
+      expect(isPlatformDeleteSupported("INSTAGRAM")).toBe(false);
+      expect(isPlatformDeleteSupported("TIKTOK")).toBe(false);
+      expect(isPlatformDeleteSupported("TWITTER")).toBe(false);
+    });
+  });
+
+  describe("getPlatformDeletePolicyNote", () => {
+    it("should return explanatory policy note for restricted platforms", () => {
+      expect(getPlatformDeletePolicyNote("INSTAGRAM")).toContain("Instagram Graph API");
+      expect(getPlatformDeletePolicyNote("TIKTOK")).toContain("TikTok API");
+    });
+
+    it("should return null for platforms without restrictions", () => {
+      expect(getPlatformDeletePolicyNote("META_PAGE")).toBeNull();
+      expect(getPlatformDeletePolicyNote("THREADS")).toBeNull();
     });
   });
 });

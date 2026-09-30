@@ -29,7 +29,8 @@ import {
 import { PlatformConstraintValidator } from "@/components/posts/platform-constraint-validator";
 import { validateMultiPlatformConstraints, type PlatformType } from "@/lib/platform-constraints";
 import { cn } from "@/lib/utils";
-import { DeletePostModal } from "@/components/posts/delete-post-modal";
+import { DeletePostModal, type DeletePostApiResponse } from "@/components/posts/delete-post-modal";
+import { formatDeleteFeedbackMessage } from "@/lib/services/post-delete-helpers";
 import {
   ArrowLeft,
   Save,
@@ -44,6 +45,7 @@ import {
   Copy,
   RotateCcw,
   Trash2,
+  Info,
 } from "lucide-react";
 
 // ==========================================
@@ -123,9 +125,10 @@ export default function EditPostPage() {
   const [compressionProgress, setCompressionProgress] = useState(0);
   const [compressionMessage, setCompressionMessage] = useState("");
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(
-    null
-  );
+  const [feedback, setFeedback] = useState<{
+    type: "success" | "error" | "info";
+    message: string;
+  } | null>(null);
 
   const MAX_TEXT = 5000;
 
@@ -586,6 +589,17 @@ export default function EditPostPage() {
       if (window.confirm("Hapus draft offline ini dari perangkat?")) {
         await deleteOfflineDraft(postId);
         await invalidatePostsCache();
+        if (typeof window !== "undefined") {
+          try {
+            sessionStorage.setItem(
+              "mupost_delete_feedback",
+              JSON.stringify({
+                type: "success",
+                message: "Draft offline berhasil dihapus dari perangkat.",
+              })
+            );
+          } catch {}
+        }
         router.push("/posts");
       }
       return;
@@ -726,20 +740,30 @@ export default function EditPostPage() {
       {/* Feedback */}
       {feedback && (
         <div
-          className={`flex items-start gap-3 p-4 rounded-xl border text-xs ${
+          role="status"
+          aria-live="polite"
+          className={`flex items-start gap-3 p-4 rounded-xl border text-xs transition-all shadow-xs ${
             feedback.type === "success"
-              ? "bg-emerald-950/40 border-emerald-800/60 text-emerald-300"
-              : "bg-red-950/40 border-red-800/60 text-red-300"
+              ? "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/60 text-emerald-900 dark:text-emerald-300"
+              : feedback.type === "info"
+                ? "bg-indigo-50 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-800/60 text-indigo-900 dark:text-indigo-300"
+                : "bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-800/60 text-red-900 dark:text-red-300"
           }`}
         >
           {feedback.type === "success" ? (
-            <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+            <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-600 dark:text-emerald-400" />
+          ) : feedback.type === "info" ? (
+            <Info className="w-4 h-4 shrink-0 mt-0.5 text-indigo-600 dark:text-indigo-400" />
           ) : (
-            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-600 dark:text-red-400" />
           )}
-          <span className="flex-1 font-medium">{feedback.message}</span>
-          <button onClick={() => setFeedback(null)} className="text-zinc-400 hover:text-zinc-200">
-            ✕
+          <span className="flex-1 font-medium leading-relaxed">{feedback.message}</span>
+          <button
+            onClick={() => setFeedback(null)}
+            className="min-h-[44px] min-w-[44px] -my-2 -mr-2 flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors touch-manipulation"
+            aria-label="Tutup notifikasi"
+          >
+            <X className="w-4 h-4" />
           </button>
         </div>
       )}
@@ -1063,8 +1087,20 @@ export default function EditPostPage() {
               };
             }),
           }}
-          onSuccess={async () => {
+          onSuccess={async (result: DeletePostApiResponse) => {
             await invalidatePostsCache();
+            const feedbackMsg = formatDeleteFeedbackMessage({
+              deleteOnPlatforms: Boolean(
+                result.platformResults && result.platformResults.length > 0
+              ),
+              platformResults: result.platformResults,
+            });
+            setFeedback(feedbackMsg);
+            if (typeof window !== "undefined") {
+              try {
+                sessionStorage.setItem("mupost_delete_feedback", JSON.stringify(feedbackMsg));
+              } catch {}
+            }
             router.push("/posts");
           }}
         />
